@@ -113,6 +113,9 @@ ok(themeTokens.accent === '#7dd3fc', 'readable theme colours are kept as-is');
 const darkThemeTokens = createThemeTokens('#101010');
 ok(darkThemeTokens.accent !== '#101010', 'dark theme colours are lifted for contrast');
 ok(darkThemeTokens.rgb.includes(','), 'theme tokens expose RGB channels for translucent accents');
+const lightThemeTokens = createThemeTokens('#7dd3fc', 'light');
+ok(lightThemeTokens.accent !== '#7dd3fc', 'light mode deepens bright theme colours');
+ok(lightThemeTokens.onAccent === '#ffffff', 'light mode uses white text on accent buttons');
 
 csgModel.geometry.dispose();
 directModel.geometry.dispose();

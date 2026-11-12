@@ -22,6 +22,7 @@ export class BoardPreview {
     this.canvas = canvas;
     this.onContextLost = options.onContextLost || (() => {});
     this.dimensions = { length: 85, width: 56, thickness: 1.6 };
+    this.mode = 'dark';
     this.view = 'iso';
     this.transition = null;
     this.disposed = false;
@@ -138,6 +139,18 @@ export class BoardPreview {
     this.shadowPlane.position.z = -0.03;
     this.shadowPlane.receiveShadow = true;
     this.scene.add(this.shadowPlane);
+  }
+
+  setMode(mode) {
+    this.mode = mode === 'light' ? 'light' : 'dark';
+    const light = this.mode === 'light';
+    if (this.grid) {
+      this.grid.material.opacity = light ? 0.2 : 0.38;
+    }
+    if (this.shadowPlane) {
+      this.shadowPlane.material.opacity = light ? 0.2 : 0.34;
+    }
+    this.edgeMaterial.opacity = light ? 0.26 : 0.2;
   }
 
   setColor(color) {

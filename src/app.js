@@ -19,12 +19,17 @@ import { BoardPreview } from './preview.js';
 import { createBinaryStl } from './stl-export.js';
 import {
   DEFAULT_THEME_COLOR,
+  DEFAULT_THEME_MODE,
   THEME_PRESETS,
   applyTheme,
+  applyThemeMode,
   clearThemeColor,
   normalizeThemeColor,
+  normalizeThemeMode,
   readThemeColor,
+  readThemeMode,
   saveThemeColor,
+  saveThemeMode,
 } from './theme.js';
 
 const STORAGE_KEY = 'boardforge.autosave.v1';
@@ -46,6 +51,8 @@ const dom = {
   holeCount: document.querySelector('#holeCount'),
   holesHint: document.querySelector('#holesHint'),
   addHoleButton: document.querySelector('#addHoleButton'),
+  modeButton: document.querySelector('#modeButton'),
+  modeButtonLabel: document.querySelector('#modeButtonLabel'),
   themeButton: document.querySelector('#themeButton'),
   themeMenu: document.querySelector('#themeMenu'),
   themePresets: document.querySelector('#themePresets'),
@@ -86,6 +93,7 @@ const TRASH_ICON = `
 
 let state = createDefaultState();
 let currentThemeColor = DEFAULT_THEME_COLOR;
+let currentMode = DEFAULT_THEME_MODE;
 let savedStateRestored = false;
 let selectedPresetId = null;
 let preview = null;
@@ -126,6 +134,7 @@ function bootstrap() {
         onContextLost: (message) => showFatal(message),
       });
       if (preview) {
+        preview.setMode(currentMode);
         preview.setColor(state.board.color);
         preview.setDimensions(
           state.board.length,
@@ -518,7 +527,9 @@ function loadPreset(id) {
 
 function initializeTheme() {
   renderThemePresets();
+  currentMode = applyThemeMode(readThemeMode());
   applyThemeColor(readThemeColor(), { persist: false });
+  syncModeUi();
 }
 
 function renderThemePresets() {
@@ -533,16 +544,16 @@ function renderThemePresets() {
 }
 
 function applyThemeColor(value, { persist = true } = {}) {
-  const tokens = applyTheme(value);
-  currentThemeColor = normalizeThemeColor(tokens.accent);
+  currentThemeColor = normalizeThemeColor(value);
+  const tokens = applyTheme(currentThemeColor, { mode: currentMode });
   if (persist) saveThemeColor(currentThemeColor);
-  syncThemeUi();
+  syncThemeUi(tokens);
 }
 
-function syncThemeUi() {
+function syncThemeUi(tokens) {
   dom.themeColorInput.value = currentThemeColor;
   dom.themeColorHex.textContent = currentThemeColor.toUpperCase();
-  dom.themeColorPreview.style.background = currentThemeColor;
+  dom.themeColorPreview.style.background = tokens.accent;
   dom.themePresets.querySelectorAll('[data-theme-color]').forEach((button) => {
     const active = normalizeThemeColor(button.dataset.themeColor) === currentThemeColor;
     button.classList.toggle('active', active);
@@ -553,6 +564,23 @@ function syncThemeUi() {
 function resetTheme() {
   const color = clearThemeColor();
   applyThemeColor(color, { persist: false });
+}
+
+function setThemeMode(value, { persist = true } = {}) {
+  currentMode = normalizeThemeMode(value);
+  applyThemeMode(currentMode);
+  if (persist) saveThemeMode(currentMode);
+  applyThemeColor(currentThemeColor, { persist: false });
+  syncModeUi();
+  if (preview) preview.setMode(currentMode);
+}
+
+function syncModeUi() {
+  const isDark = currentMode === 'dark';
+  const actionLabel = isDark ? '切换到浅色模式' : '切换到深色模式';
+  dom.modeButton.setAttribute('title', actionLabel);
+  dom.modeButton.setAttribute('aria-label', actionLabel);
+  dom.modeButtonLabel.textContent = isDark ? '深色' : '浅色';
 }
 
 function setThemeMenuOpen(open) {
@@ -1062,6 +1090,9 @@ function bindEvents() {
     if (button) loadPreset(button.dataset.presetId);
   });
 
+  dom.modeButton.addEventListener('click', () => {
+    setThemeMode(currentMode === 'dark' ? 'light' : 'dark');
+  });
   dom.themeButton.addEventListener('click', () => {
     setThemeMenuOpen(dom.themeMenu.hidden);
   });
@@ -1192,6 +1223,7 @@ function exposeDebugApi() {
           : null,
       getFilename: () => boardFileStem(state),
       getTheme: () => currentThemeColor,
+      getMode: () => currentMode,
       isBusy: () => isBuilding || modelDirty,
       setView: (view) => requestView(view),
       rebuild: () => scheduleBuild({ fit: true, immediate: true }),

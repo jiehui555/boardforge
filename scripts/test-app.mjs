@@ -151,6 +151,7 @@ try {
   ok(initial.state.board.color === '#1a5f2a', 'default board color matches the specification');
   ok(initial.state.units === 'mm', 'state units are millimetres');
   ok(await page.locator('.hole-row').count() === 4, 'four hole rows are rendered');
+  ok((await page.evaluate(() => window.boardForge.getMode())) === 'dark', 'default interface mode is dark');
 
   await page.screenshot({ path: join(screenshots, 'app-default.png') });
 
@@ -176,6 +177,28 @@ try {
   ok(themeState.stored?.includes('#7dd3fc'), 'theme preference is saved locally');
   await page.keyboard.press('Escape');
   ok(await page.locator('#themeMenu').isHidden(), 'theme menu closes with Escape');
+
+  // Dark/light mode toggle.
+  await page.locator('#modeButton').click();
+  await page.waitForTimeout(520);
+  const lightMode = await page.evaluate(() => ({
+    mode: window.boardForge.getMode(),
+    attribute: document.documentElement.dataset.mode,
+    background: getComputedStyle(document.body).backgroundColor,
+    stored: localStorage.getItem('boardforge.mode.v1'),
+    theme: window.boardForge.getTheme(),
+    boardColor: window.boardForge.getState().board.color,
+  }));
+  ok(lightMode.mode === 'light', 'mode button switches to light mode');
+  ok(lightMode.attribute === 'light', 'light mode is exposed on the document root');
+  ok(lightMode.background === 'rgb(237, 242, 238)', 'light mode applies a light surface colour');
+  ok(lightMode.stored === 'light', 'light mode preference is saved locally');
+  ok(lightMode.theme === '#7dd3fc', 'mode switch preserves the selected accent colour');
+  ok(lightMode.boardColor === '#1a5f2a', 'mode switch preserves the board colour');
+  ok((await page.locator('#modeButtonLabel').textContent()) === '浅色', 'mode button reflects the current mode');
+  ok((await page.locator('#modeButton').getAttribute('aria-label')) === '切换到深色模式', 'mode button announces the next action');
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
+  await page.screenshot({ path: join(screenshots, 'app-light.png') });
 
   // Real-time dimension change.
   await page.locator('#lengthInput').fill('100');
@@ -298,10 +321,13 @@ try {
   const restored = await page.evaluate(() => ({
     state: window.boardForge.getState(),
     theme: window.boardForge.getTheme(),
+    mode: window.boardForge.getMode(),
+    attribute: document.documentElement.dataset.mode,
   }));
   ok(restored.state.name === 'ESP32 DevKit V1', 'autosaved parameters survive reload');
   ok(restored.state.board.length === 49, 'autosaved dimensions survive reload');
   ok(restored.theme === '#7dd3fc', 'selected theme survives reload');
+  ok(restored.mode === 'light' && restored.attribute === 'light', 'light mode survives reload');
 
   ok(consoleErrors.length === 0, `no browser errors were emitted:\n${consoleErrors.join('\n')}`);
 
@@ -319,6 +345,16 @@ try {
   );
   ok(noOverflow, 'mobile layout has no horizontal overflow');
   await mobile.screenshot({ path: join(screenshots, 'app-mobile.png') });
+
+  await mobile.locator('#modeButton').click();
+  await mobile.waitForTimeout(520);
+  const mobileLight = await mobile.evaluate(() => ({
+    mode: window.boardForge.getMode(),
+    noOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+  }));
+  ok(mobileLight.mode === 'light', 'mobile mode toggle switches to light mode');
+  ok(mobileLight.noOverflow, 'mobile light mode has no horizontal overflow');
+  await mobile.screenshot({ path: join(screenshots, 'app-mobile-light.png') });
   await mobile.close();
 
   console.log(`\nBoardForge checks passed: ${checks}`);
