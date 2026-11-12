@@ -2,32 +2,42 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const VIEW_DIRECTIONS = Object.freeze({
-  iso: { direction: [0.92, -1.22, 1.02], up: [0, 0, 1] },
+  iso: { direction: [0.98, -1.28, 1.02], up: [0, 0, 1] },
   top: { direction: [0, 0, 1], up: [0, 1, 0] },
-  front: { direction: [0, -1, 0.16], up: [0, 0, 1] },
-  right: { direction: [1, 0, 0.16], up: [0, 0, 1] },
+  front: { direction: [0, -1, 0.2], up: [0, 0, 1] },
+  right: { direction: [1, 0, 0.2], up: [0, 0, 1] },
 });
 
 function smoothstep(value) {
   return value * value * (3 - 2 * value);
 }
 
+function makeCylinder(radius, height, x, y, z, segments = 24) {
+  const geometry = new THREE.CylinderGeometry(radius, radius, height, segments, 1, false);
+  geometry.rotateX(Math.PI / 2);
+  geometry.translate(x, y, z);
+  geometry.deleteAttribute('uv');
+  return geometry;
+}
+
 /**
- * A small, self-contained Three.js scene for the board preview.
- * Geometry ownership is transferred to the preview: replacing a model disposes
- * the previous geometry.
+ * Three.js preview for an acrylic enclosure assembly. Geometry ownership is
+ * transferred from the case builder to this class on setModel().
  */
 export class BoardPreview {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
     this.onContextLost = options.onContextLost || (() => {});
-    this.dimensions = { length: 85, width: 56, thickness: 1.6 };
-    this.mode = 'dark';
+    this.bounds = { width: 103, depth: 74, height: 35.6, centerZ: 17.8 };
     this.view = 'iso';
+    this.mode = 'dark';
     this.transition = null;
+    this.exploded = false;
+    this.explodeProgress = 0;
+    this.explodeTarget = 0;
+    this.explodeDistance = 28;
+    this.panelEntries = [];
     this.disposed = false;
-    this.mesh = null;
-    this.edges = null;
     this.pendingFit = true;
 
     this.renderer = new THREE.WebGLRenderer({
@@ -39,16 +49,15 @@ export class BoardPreview {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 0.96;
+    this.renderer.toneMappingExposure = 1.0;
     this.renderer.setClearColor(0x000000, 0);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene = new THREE.Scene();
-
-    this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 5000);
+    this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 6000);
     this.camera.up.set(0, 0, 1);
-    this.camera.position.set(150, -180, 150);
+    this.camera.position.set(170, -210, 180);
 
     this.controls = new OrbitControls(this.camera, canvas);
     this.controls.enableDamping = true;
@@ -58,31 +67,62 @@ export class BoardPreview {
     this.controls.panSpeed = 0.68;
     this.controls.screenSpacePanning = true;
     this.controls.minDistance = 8;
-    this.controls.maxDistance = 2600;
-    this.controls.target.set(0, 0, 0.8);
+    this.controls.maxDistance = 3200;
+    this.controls.target.set(0, 0, 15);
     this.controls.update();
     this.controls.addEventListener('start', () => {
       this.transition = null;
     });
 
-    this.material = new THREE.MeshStandardMaterial({
+    this.panelMaterial = new THREE.MeshPhysicalMaterial({
+      color: 0xbfe7e1,
+      roughness: 0.14,
+      metalness: 0.02,
+      transparent: true,
+      opacity: 0.18,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+      clearcoat: 0.8,
+      clearcoatRoughness: 0.12,
+    });
+    this.panelEdgeMaterial = new THREE.LineBasicMaterial({
+      color: 0xa8e6dd,
+      transparent: true,
+      opacity: 0.58,
+      depthWrite: false,
+    });
+    this.boardMaterial = new THREE.MeshStandardMaterial({
       color: 0x1a5f2a,
       roughness: 0.62,
       metalness: 0.03,
       side: THREE.DoubleSide,
     });
-
-    this.edgeMaterial = new THREE.LineBasicMaterial({
-      color: 0x9dc7a6,
-      transparent: true,
-      opacity: 0.2,
-      depthWrite: false,
+    this.steelMaterial = new THREE.MeshStandardMaterial({
+      color: 0xc6d0d1,
+      roughness: 0.3,
+      metalness: 0.82,
+    });
+    this.brassMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb3955c,
+      roughness: 0.36,
+      metalness: 0.7,
+    });
+    this.copperMaterial = new THREE.MeshStandardMaterial({
+      color: 0xb9773f,
+      roughness: 0.4,
+      metalness: 0.65,
     });
 
+    this.assemblyGroup = new THREE.Group();
+    this.scene.add(this.assemblyGroup);
+    this.panelsGroup = new THREE.Group();
+    this.hardwareGroup = new THREE.Group();
     this.boardGroup = new THREE.Group();
-    this.scene.add(this.boardGroup);
+    this.assemblyGroup.add(this.panelsGroup, this.hardwareGroup, this.boardGroup);
 
     this.createEnvironment();
+    this.setMode(this.mode);
+
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(canvas.parentElement || canvas);
     this.resize();
@@ -97,45 +137,47 @@ export class BoardPreview {
   }
 
   createEnvironment() {
-    const hemisphere = new THREE.HemisphereLight(0xd8f1de, 0x070b08, 0.92);
+    const hemisphere = new THREE.HemisphereLight(0xd8f1de, 0x070b08, 1.05);
     this.scene.add(hemisphere);
 
-    const key = new THREE.DirectionalLight(0xf1fff3, 1.65);
-    key.position.set(110, -150, 220);
+    const key = new THREE.DirectionalLight(0xf4fff5, 1.85);
+    key.position.set(140, -180, 260);
     key.castShadow = true;
     key.shadow.mapSize.set(1536, 1536);
-    key.shadow.camera.left = -190;
-    key.shadow.camera.right = 190;
-    key.shadow.camera.top = 190;
-    key.shadow.camera.bottom = -190;
+    key.shadow.camera.left = -260;
+    key.shadow.camera.right = 260;
+    key.shadow.camera.top = 260;
+    key.shadow.camera.bottom = -260;
     key.shadow.camera.near = 10;
-    key.shadow.camera.far = 650;
+    key.shadow.camera.far = 850;
     key.shadow.bias = -0.0002;
     key.shadow.normalBias = 0.04;
     this.scene.add(key);
 
     const fill = new THREE.DirectionalLight(0x8bbd9a, 0.55);
-    fill.position.set(-180, 110, 90);
+    fill.position.set(-220, 120, 130);
     this.scene.add(fill);
 
-    const rim = new THREE.DirectionalLight(0x5b8d6c, 0.45);
-    rim.position.set(-60, -160, 40);
+    const rim = new THREE.DirectionalLight(0x6aa982, 0.65);
+    rim.position.set(-80, -190, 80);
     this.scene.add(rim);
 
-    this.grid = new THREE.GridHelper(640, 64, 0x3c5a45, 0x1d2b22);
+    this.grid = new THREE.GridHelper(800, 80, 0x3c5a45, 0x1d2b22);
     this.grid.rotation.x = Math.PI / 2;
     this.grid.position.z = 0.015;
     this.grid.material.transparent = true;
-    this.grid.material.opacity = 0.38;
+    this.grid.material.opacity = 0.32;
     this.grid.material.depthWrite = false;
     this.scene.add(this.grid);
 
-    const shadowMaterial = new THREE.ShadowMaterial({
-      color: 0x000000,
-      opacity: 0.34,
-      transparent: true,
-    });
-    this.shadowPlane = new THREE.Mesh(new THREE.PlaneGeometry(620, 620), shadowMaterial);
+    this.shadowPlane = new THREE.Mesh(
+      new THREE.PlaneGeometry(900, 900),
+      new THREE.ShadowMaterial({
+        color: 0x000000,
+        opacity: 0.28,
+        transparent: true,
+      }),
+    );
     this.shadowPlane.position.z = -0.03;
     this.shadowPlane.receiveShadow = true;
     this.scene.add(this.shadowPlane);
@@ -144,67 +186,126 @@ export class BoardPreview {
   setMode(mode) {
     this.mode = mode === 'light' ? 'light' : 'dark';
     const light = this.mode === 'light';
-    if (this.grid) {
-      this.grid.material.opacity = light ? 0.2 : 0.38;
-    }
-    if (this.shadowPlane) {
-      this.shadowPlane.material.opacity = light ? 0.2 : 0.34;
-    }
-    this.edgeMaterial.opacity = light ? 0.26 : 0.2;
+    this.panelMaterial.color.set(light ? 0xb9e2db : 0xbfe7e1);
+    this.panelMaterial.opacity = light ? 0.22 : 0.18;
+    this.panelEdgeMaterial.color.set(light ? 0x2f766a : 0xa8e6dd);
+    this.panelEdgeMaterial.opacity = light ? 0.72 : 0.58;
+    if (this.grid) this.grid.material.opacity = light ? 0.2 : 0.32;
+    if (this.shadowPlane) this.shadowPlane.material.opacity = light ? 0.18 : 0.28;
   }
 
-  setColor(color) {
-    this.material.color.set(color);
-    this.edgeMaterial.color.set(color).lerp(new THREE.Color(0xffffff), 0.48);
+  setBoardColor(color) {
+    this.boardMaterial.color.set(color);
   }
 
-  setDimensions(length, width, thickness) {
-    this.dimensions = {
-      length: Number(length),
-      width: Number(width),
-      thickness: Number(thickness),
+  setModel(model, options = {}) {
+    if (!model) return;
+    this.clearAssembly();
+    this.bounds = {
+      width: model.dimensions.outerWidth,
+      depth: model.dimensions.outerDepth,
+      height: model.dimensions.outerHeight,
+      centerZ: model.dimensions.outerHeight / 2,
     };
-    this.boardGroup.position.z = Math.max(0, this.dimensions.thickness / 2);
-  }
+    this.explodeDistance = Math.max(24, Math.min(this.bounds.width, this.bounds.depth) * 0.28);
 
-  /**
-   * @param {THREE.BufferGeometry} geometry
-   * @param {{length:number,width:number,thickness:number,fit?:boolean}} options
-   */
-  setGeometry(geometry, options = {}) {
-    if (!geometry) return;
-
-    if (this.mesh) {
-      const oldGeometry = this.mesh.geometry;
-      this.mesh.geometry = geometry;
-      if (oldGeometry && oldGeometry !== geometry) oldGeometry.dispose();
-    } else {
-      this.mesh = new THREE.Mesh(geometry, this.material);
-      this.mesh.castShadow = true;
-      this.mesh.receiveShadow = true;
-      this.boardGroup.add(this.mesh);
+    for (const panel of model.panels) {
+      const mesh = new THREE.Mesh(panel.geometry, this.panelMaterial);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.renderOrder = 3;
+      const edges = new THREE.LineSegments(
+        new THREE.EdgesGeometry(panel.geometry, 24),
+        this.panelEdgeMaterial,
+      );
+      edges.renderOrder = 4;
+      const group = new THREE.Group();
+      group.add(mesh, edges);
+      this.panelsGroup.add(group);
+      this.panelEntries.push({
+        group,
+        mesh,
+        edges,
+        direction: panel.explosion,
+      });
     }
 
-    if (this.edges) {
-      this.edges.geometry.dispose();
-      this.boardGroup.remove(this.edges);
-      this.edges = null;
+    this.boardMesh = new THREE.Mesh(model.board.geometry, this.boardMaterial);
+    this.boardMesh.position.z = model.board.z;
+    this.boardMesh.castShadow = true;
+    this.boardMesh.receiveShadow = true;
+    this.boardGroup.add(this.boardMesh);
+
+    for (const post of model.hardware.posts) {
+      const mesh = new THREE.Mesh(
+        makeCylinder(post.radius, post.height, post.x, post.y, post.z, 6),
+        this.brassMaterial,
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.hardwareGroup.add(mesh);
+    }
+    for (const standoff of model.hardware.boardStandoffs) {
+      const mesh = new THREE.Mesh(
+        makeCylinder(standoff.radius, standoff.height, standoff.x, standoff.y, standoff.z, 24),
+        this.copperMaterial,
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.hardwareGroup.add(mesh);
+    }
+    for (const screw of model.hardware.screwHeads) {
+      const mesh = new THREE.Mesh(
+        makeCylinder(screw.radius, screw.height, screw.x, screw.y, screw.z, 24),
+        this.steelMaterial,
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.hardwareGroup.add(mesh);
     }
 
-    try {
-      const edgeGeometry = new THREE.EdgesGeometry(geometry, 28);
-      this.edges = new THREE.LineSegments(edgeGeometry, this.edgeMaterial);
-      this.edges.renderOrder = 2;
-      this.boardGroup.add(this.edges);
-    } catch {
-      // The model is still perfectly usable without the cosmetic outline.
-    }
-
-    this.setDimensions(options.length, options.width, options.thickness);
+    this.applyExplosion();
     const shouldFit = options.fit ?? this.pendingFit;
     if (shouldFit) {
       this.fitView(this.view, false);
       this.pendingFit = false;
+    }
+  }
+
+  clearAssembly() {
+    for (const entry of this.panelEntries) {
+      entry.group.remove(entry.mesh, entry.edges);
+      entry.mesh.geometry.dispose();
+      entry.edges.geometry.dispose();
+    }
+    this.panelEntries = [];
+    this.panelsGroup.clear();
+
+    if (this.boardMesh) {
+      this.boardGroup.remove(this.boardMesh);
+      this.boardMesh.geometry.dispose();
+      this.boardMesh = null;
+    }
+
+    this.hardwareGroup.traverse((object) => {
+      if (object.isMesh) object.geometry.dispose();
+    });
+    this.hardwareGroup.clear();
+  }
+
+  setExploded(exploded) {
+    this.exploded = Boolean(exploded);
+    this.explodeTarget = this.exploded ? 1 : 0;
+  }
+
+  applyExplosion() {
+    for (const entry of this.panelEntries) {
+      const scale = this.explodeProgress * this.explodeDistance;
+      entry.group.position.set(
+        entry.direction[0] * scale,
+        entry.direction[1] * scale,
+        entry.direction[2] * scale,
+      );
     }
   }
 
@@ -216,16 +317,17 @@ export class BoardPreview {
 
   fitView(view = this.view, animate = true) {
     const definition = VIEW_DIRECTIONS[view] || VIEW_DIRECTIONS.iso;
-    const { length, width, thickness } = this.dimensions;
-    const radius = Math.sqrt(length * length + width * width + thickness * thickness) / 2;
+    const { width, depth, height, centerZ } = this.bounds;
+    const radius =
+      Math.sqrt(width * width + depth * depth + height * height) / 2;
     const fov = THREE.MathUtils.degToRad(this.camera.fov);
     const aspect = Math.max(0.35, this.camera.aspect || 1);
-    let distance = (radius / Math.sin(fov / 2)) * 1.17;
+    let distance = (radius / Math.sin(fov / 2)) * 1.25;
     if (aspect < 0.9) distance /= Math.max(0.55, aspect);
 
-    const target = new THREE.Vector3(0, 0, thickness / 2);
+    const target = new THREE.Vector3(0, 0, centerZ);
     const direction = new THREE.Vector3(...definition.direction).normalize();
-    const position = target.clone().addScaledVector(direction, Math.max(35, distance));
+    const position = target.clone().addScaledVector(direction, Math.max(45, distance));
     const up = new THREE.Vector3(...definition.up);
 
     if (!animate) {
@@ -245,7 +347,7 @@ export class BoardPreview {
       fromUp: this.camera.up.clone(),
       toUp: up,
       start: performance.now(),
-      duration: 380,
+      duration: 400,
     };
   }
 
@@ -288,6 +390,15 @@ export class BoardPreview {
       if (elapsed >= 1) this.transition = null;
     }
 
+    if (Math.abs(this.explodeProgress - this.explodeTarget) > 0.001) {
+      this.explodeProgress +=
+        (this.explodeTarget - this.explodeProgress) * 0.14;
+      this.applyExplosion();
+    } else if (this.explodeProgress !== this.explodeTarget) {
+      this.explodeProgress = this.explodeTarget;
+      this.applyExplosion();
+    }
+
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
   }
@@ -297,16 +408,13 @@ export class BoardPreview {
     cancelAnimationFrame(this.frame);
     this.resizeObserver.disconnect();
     this.controls.dispose();
-    if (this.mesh) {
-      this.mesh.geometry.dispose();
-      this.mesh = null;
-    }
-    if (this.edges) {
-      this.edges.geometry.dispose();
-      this.edges = null;
-    }
-    this.material.dispose();
-    this.edgeMaterial.dispose();
+    this.clearAssembly();
+    this.panelMaterial.dispose();
+    this.panelEdgeMaterial.dispose();
+    this.boardMaterial.dispose();
+    this.steelMaterial.dispose();
+    this.brassMaterial.dispose();
+    this.copperMaterial.dispose();
     this.grid.geometry.dispose();
     this.grid.material.dispose();
     this.shadowPlane.geometry.dispose();

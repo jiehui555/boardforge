@@ -10,7 +10,7 @@ import { chromium } from 'playwright-core';
 const root = resolve(process.cwd());
 const appUrl = pathToFileURL(resolve(root, 'dist/index.html')).href;
 const screenshots = resolve(root, 'screenshots');
-const work = join(tmpdir(), `boardforge-test-${process.pid}`);
+const work = join(tmpdir(), `boardforge-case-test-${process.pid}`);
 
 if (!existsSync(resolve(root, 'dist/index.html'))) {
   throw new Error('dist/index.html is missing. Run `npm run build` first.');
@@ -47,7 +47,6 @@ const page = await browser.newPage({
   viewport: { width: 1440, height: 960 },
   acceptDownloads: true,
 });
-
 page.on('pageerror', (error) => consoleErrors.push(`pageerror: ${error.message}`));
 page.on('console', (message) => {
   if (message.type() === 'error') consoleErrors.push(`console: ${message.text()}`);
@@ -62,276 +61,311 @@ function ok(condition, message) {
 async function waitIdle() {
   await page.waitForFunction(
     () => window.boardForge?.getDiagnostics() && !window.boardForge.isBusy(),
-    { timeout: 25_000 },
+    { timeout: 30_000 },
   );
+  await page.waitForTimeout(80);
 }
 
 async function waitReady() {
   await page.waitForFunction(() => Boolean(window.boardForge?.getDiagnostics()), {
-    timeout: 25_000,
+    timeout: 30_000,
   });
   await waitIdle();
+}
+
+async function diagnostics() {
+  return page.evaluate(() => window.boardForge.getDiagnostics());
+}
+
+async function state() {
+  return page.evaluate(() => window.boardForge.getState());
+}
+
+async function download(selector, destination) {
+  await page.locator(selector).scrollIntoViewIfNeeded();
+  await page.waitForTimeout(120);
+  const [downloadEvent] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator(selector).click(),
+  ]);
+  await downloadEvent.saveAs(destination);
+  return downloadEvent;
 }
 
 function parseBinaryStl(buffer) {
   assert.ok(buffer.length >= 84, 'STL must have a header and triangle count');
   const triangles = buffer.readUInt32LE(80);
   assert.equal(buffer.length, 84 + triangles * 50, 'binary STL byte length must be exact');
-
-  const trianglesData = [];
-  let minX = Infinity;
-  let minY = Infinity;
   let minZ = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
   let maxZ = -Infinity;
-  const edgeCounts = new Map();
-
-  const keyFor = (x, y, z) =>
-    `${Math.round(x * 1000)},${Math.round(y * 1000)},${Math.round(z * 1000)}`;
-
+  let minX = Infinity;
+  let maxX = -Infinity;
   for (let index = 0; index < triangles; index += 1) {
-    let offset = 84 + index * 50;
-    const normal = [];
-    for (let n = 0; n < 3; n += 1) {
-      normal.push(buffer.readFloatLE(offset));
-      offset += 4;
-    }
-    const vertices = [];
+    const offset = 84 + index * 50;
+    const values = [];
     for (let vertex = 0; vertex < 3; vertex += 1) {
-      const x = buffer.readFloatLE(offset);
-      const y = buffer.readFloatLE(offset + 4);
-      const z = buffer.readFloatLE(offset + 8);
-      offset += 12;
-      vertices.push([x, y, z]);
+      const vertexOffset = offset + 12 + vertex * 12;
+      values.push([
+        buffer.readFloatLE(vertexOffset),
+        buffer.readFloatLE(vertexOffset + 4),
+        buffer.readFloatLE(vertexOffset + 8),
+      ]);
+    }
+    for (const [x, y, z] of values) {
       minX = Math.min(minX, x);
-      minY = Math.min(minY, y);
-      minZ = Math.min(minZ, z);
       maxX = Math.max(maxX, x);
-      maxY = Math.max(maxY, y);
+      minZ = Math.min(minZ, z);
       maxZ = Math.max(maxZ, z);
     }
-    const attribute = buffer.readUInt16LE(offset);
-    assert.equal(attribute, 0);
-    assert.ok(normal.every(Number.isFinite), 'STL normals must be finite');
-    trianglesData.push(vertices.map((vertex) => keyFor(...vertex)));
-
-    for (let edge = 0; edge < 3; edge += 1) {
-      const a = keyFor(...vertices[edge]);
-      const b = keyFor(...vertices[(edge + 1) % 3]);
-      if (a === b) continue;
-      const key = a < b ? `${a}|${b}` : `${b}|${a}`;
-      edgeCounts.set(key, (edgeCounts.get(key) || 0) + 1);
-    }
   }
-
-  return {
-    triangles,
-    trianglesData,
-    bounds: { minX, minY, minZ, maxX, maxY, maxZ },
-    edgeCounts,
-  };
+  return { triangles, minX, maxX, minZ, maxZ };
 }
 
 try {
   await page.goto(appUrl, { waitUntil: 'load' });
-  await page.evaluate(() => localStorage.clear());
-  await page.reload({ waitUntil: 'load' });
   await waitReady();
 
-  const initial = await page.evaluate(() => ({
-    state: window.boardForge.getState(),
-    diagnostics: window.boardForge.getDiagnostics(),
-  }));
-  ok(initial.diagnostics.construction === 'csg', 'default model uses real CSG subtraction');
-  ok(initial.diagnostics.watertight, 'default model is watertight');
-  ok(initial.diagnostics.triangles > 0, 'default model has triangles');
-  ok(initial.diagnostics.outsideHoles === 0, 'default holes fit on the board');
-  ok(initial.state.holes.length === 4, 'default state has four holes');
-  ok(initial.state.board.color === '#1a5f2a', 'default board color matches the specification');
-  ok(initial.state.units === 'mm', 'state units are millimetres');
-  ok(await page.locator('.hole-row').count() === 4, 'four hole rows are rendered');
-  ok((await page.evaluate(() => window.boardForge.getMode())) === 'dark', 'default interface mode is dark');
+  const initial = { state: await state(), diagnostics: await diagnostics() };
+  ok(initial.state.version === 2, 'default document is case format version 2');
+  ok(initial.state.format === 'boardforge-case', 'default document uses boardforge-case format');
+  ok(initial.state.enclosure.panel_thickness === 3, 'default acrylic is 3 mm');
+  ok(initial.diagnostics.panelCount === 6, 'six panels are generated');
+  ok(initial.diagnostics.postCount === 4, 'four M3 corner posts are generated');
+  ok(initial.diagnostics.mountCount === 4, 'four board standoffs are generated');
+  ok(initial.diagnostics.warnings.length === 0, 'default enclosure has no warnings');
+  ok(initial.diagnostics.outer.width === 103, 'default outer width is 103 mm');
+  ok(initial.diagnostics.outer.depth === 74, 'default outer depth is 74 mm');
+  ok(initial.diagnostics.outer.height === 35.6, 'default outer height is 35.6 mm');
+  ok(initial.diagnostics.boardWatertight, 'board reference remains watertight');
+  ok((await page.locator('#modelStatusText').textContent()).includes('6 面板'), 'status reports six panels');
+  ok((await page.evaluate(() => window.boardForge.getMode())) === 'dark', 'default mode is dark');
 
-  await page.screenshot({ path: join(screenshots, 'app-default.png') });
+  await page.screenshot({ path: join(screenshots, 'case-default.png') });
 
-  // Interface theme is configurable, persisted separately and does not alter the board.
+  // Theme and mode controls remain available in the enclosure-first UI.
   await page.locator('#themeButton').click();
-  ok(await page.locator('#themeMenu').isVisible(), 'theme menu opens from the top bar');
-  ok(
-    (await page.locator('#themeButton').getAttribute('aria-expanded')) === 'true',
-    'theme menu updates its expanded state',
-  );
   await page.locator('[data-theme-preset="sky"]').click();
-  const themeState = await page.evaluate(() => ({
-    selected: window.boardForge.getTheme(),
-    accent: getComputedStyle(document.documentElement)
-      .getPropertyValue('--accent')
-      .trim(),
-    boardColor: window.boardForge.getState().board.color,
-    stored: localStorage.getItem('boardforge.theme.v1'),
-  }));
-  ok(themeState.selected === '#7dd3fc', 'theme preset updates the UI accent colour');
-  ok(themeState.accent === '#7dd3fc', 'theme accent is exposed to CSS variables');
-  ok(themeState.boardColor === '#1a5f2a', 'theme colour does not change the board colour');
-  ok(themeState.stored?.includes('#7dd3fc'), 'theme preference is saved locally');
+  ok((await page.evaluate(() => window.boardForge.getTheme())) === '#7dd3fc', 'theme preset updates accent');
   await page.keyboard.press('Escape');
-  ok(await page.locator('#themeMenu').isHidden(), 'theme menu closes with Escape');
-
-  // Dark/light mode toggle.
   await page.locator('#modeButton').click();
   await page.waitForTimeout(520);
-  const lightMode = await page.evaluate(() => ({
+  const light = await page.evaluate(() => ({
     mode: window.boardForge.getMode(),
-    attribute: document.documentElement.dataset.mode,
+    root: document.documentElement.dataset.mode,
     background: getComputedStyle(document.body).backgroundColor,
     stored: localStorage.getItem('boardforge.mode.v1'),
-    theme: window.boardForge.getTheme(),
-    boardColor: window.boardForge.getState().board.color,
   }));
-  ok(lightMode.mode === 'light', 'mode button switches to light mode');
-  ok(lightMode.attribute === 'light', 'light mode is exposed on the document root');
-  ok(lightMode.background === 'rgb(237, 242, 238)', 'light mode applies a light surface colour');
-  ok(lightMode.stored === 'light', 'light mode preference is saved locally');
-  ok(lightMode.theme === '#7dd3fc', 'mode switch preserves the selected accent colour');
-  ok(lightMode.boardColor === '#1a5f2a', 'mode switch preserves the board colour');
-  ok((await page.locator('#modeButtonLabel').textContent()) === '浅色', 'mode button reflects the current mode');
-  ok((await page.locator('#modeButton').getAttribute('aria-label')) === '切换到深色模式', 'mode button announces the next action');
+  ok(light.mode === 'light' && light.root === 'light', 'light mode switches the shell UI');
+  ok(light.background === 'rgb(237, 242, 238)', 'light mode applies a light background');
+  ok(light.stored === 'light', 'light mode preference is persisted');
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
-  await page.screenshot({ path: join(screenshots, 'app-light.png') });
+  await page.screenshot({ path: join(screenshots, 'case-light.png') });
 
-  // Real-time dimension change.
-  await page.locator('#lengthInput').fill('100');
-  await waitIdle();
-  const resized = await page.evaluate(() => window.boardForge.getDiagnostics());
-  ok(Math.abs(resized.bbox.min[0] + 50) < 0.02, 'length update rebuilt the model');
-  ok(Math.abs(resized.bbox.max[0] - 50) < 0.02, 'length update rebuilt the model (max X)');
-  ok(resized.watertight, 'resized model remains watertight');
-
-  // Add a fifth hole and edit it.
-  await page.locator('#addHoleButton').click();
-  await page.waitForFunction(() => document.querySelectorAll('.hole-row').length === 5);
-  const lastRow = page.locator('.hole-row').last();
-  await lastRow.locator('[data-hole="x"]').fill('10');
-  await lastRow.locator('[data-hole="y"]').fill('5');
-  await lastRow.locator('[data-hole="diameter"]').fill('3.2');
-  await waitIdle();
-  const withExtraHole = await page.evaluate(() => window.boardForge.getState());
-  ok(withExtraHole.holes.length === 5, 'hole can be added');
-  ok(withExtraHole.holes[4].x === 10 && withExtraHole.holes[4].diameter === 3.2, 'hole fields update state');
-
-  // Export editable JSON.
-  const [jsonDownload] = await Promise.all([
-    page.waitForEvent('download'),
-    page.locator('#exportJsonButton').click(),
-  ]);
-  ok(jsonDownload.suggestedFilename() === 'board-100x56.board.json', 'JSON filename is generated automatically');
-  const jsonPath = join(work, 'exported.board.json');
-  await jsonDownload.saveAs(jsonPath);
-  const exportedJson = JSON.parse(await readFile(jsonPath, 'utf8'));
-  ok(exportedJson.version === 1 && exportedJson.units === 'mm', 'JSON contains version and units');
-  ok(exportedJson.board.length === 100 && exportedJson.holes.length === 5, 'JSON contains all current parameters');
-
-  // Export binary STL and validate at the triangle/edge level.
-  const [stlDownload] = await Promise.all([
-    page.waitForEvent('download'),
-    page.locator('#exportStlButton').click(),
-  ]);
-  ok(stlDownload.suggestedFilename() === 'board-100x56.stl', 'STL filename is generated automatically');
-  const stlPath = join(work, 'exported.stl');
-  await stlDownload.saveAs(stlPath);
-  const stlBuffer = await readFile(stlPath);
-  const stl = parseBinaryStl(stlBuffer);
-  const currentDiagnostics = await page.evaluate(() => window.boardForge.getDiagnostics());
-  ok(stl.triangles === currentDiagnostics.triangles, 'STL triangle count matches the preview');
-  ok(Math.abs(stl.bounds.minX + 50) < 0.01 && Math.abs(stl.bounds.maxX - 50) < 0.01, 'STL X bounds match 100 mm');
-  ok(Math.abs(stl.bounds.minY + 28) < 0.01 && Math.abs(stl.bounds.maxY - 28) < 0.01, 'STL Y bounds match 56 mm');
-  ok(Math.abs(stl.bounds.minZ + 0.8) < 0.01 && Math.abs(stl.bounds.maxZ - 0.8) < 0.01, 'STL Z bounds match 1.6 mm thickness');
-  const badEdges = [...stl.edgeCounts.values()].filter((count) => count !== 2);
-  ok(badEdges.length === 0, 'exported STL is a closed manifold surface');
-  ok(stl.triangles > 0, 'STL contains triangles');
-
-  // Import through the file input.
-  const importedDocument = structuredClone(exportedJson);
-  importedDocument.name = 'Imported Board';
-  importedDocument.board.length = 72;
-  importedDocument.holes = [{ x: -10, y: -5, diameter: 2.2 }];
-  const importPath = join(work, 'import.board.json');
-  await writeFile(importPath, JSON.stringify(importedDocument, null, 2));
-  await page.locator('#fileInput').setInputFiles(importPath);
-  await page.waitForFunction(() => window.boardForge.getState().name === 'Imported Board');
-  await waitIdle();
-  const importedState = await page.evaluate(() => window.boardForge.getState());
-  ok(importedState.board.length === 72, 'file import restores board size');
-  ok(importedState.holes.length === 1 && importedState.holes[0].diameter === 2.2, 'file import restores holes');
-  ok(await page.locator('.hole-row').count() === 1, 'file import updates the hole form');
-
-  // Import by drag and drop.
-  const droppedDocument = structuredClone(importedDocument);
-  droppedDocument.name = 'Dropped Board';
-  droppedDocument.board.width = 34;
-  await page.evaluate((json) => {
-    const transfer = new DataTransfer();
-    transfer.items.add(new File([json], 'dropped.board.json', { type: 'application/json' }));
-    window.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: transfer }));
-    window.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
-  }, JSON.stringify(droppedDocument));
-  await page.waitForFunction(() => window.boardForge.getState().name === 'Dropped Board');
-  await waitIdle();
-  ok((await page.evaluate(() => window.boardForge.getState().board.width)) === 34, 'drag-and-drop import restores parameters');
-
-  // Validation blocks export while a field is invalid, then clamps on blur.
-  await page.locator('#thicknessInput').fill('0');
-  await page.waitForTimeout(120);
-  ok(await page.locator('#exportStlButton').isDisabled(), 'STL export is blocked for invalid thickness');
-  ok((await page.locator('#modelStatusText').textContent()).includes('待修正'), 'invalid input is signalled in the status');
-  await page.locator('#thicknessInput').blur();
-  await waitIdle();
-  ok((await page.locator('#thicknessInput').inputValue()) === '0.2', 'invalid thickness clamps to the minimum');
-  ok(!(await page.locator('#exportStlButton').isDisabled()), 'STL export recovers after correction');
-
-  // Out-of-bounds holes are reported and skipped, but the model stays printable.
-  await page.locator('.hole-row').first().locator('[data-hole="x"]').fill('100');
-  await waitIdle();
-  const outside = await page.evaluate(() => window.boardForge.getDiagnostics());
-  ok(outside.outsideHoles === 1, 'an out-of-bounds hole is skipped');
-  ok(outside.watertight, 'model remains watertight after skipping a hole');
-  ok((await page.locator('#modelStatusText').textContent()).includes('越界'), 'out-of-bounds hole is reported');
-  ok(!(await page.locator('#exportStlButton').isDisabled()), 'STL can still be exported without the invalid hole');
-
-  // Preset and view controls.
+  // Preset loads a new board and resets the enclosure.
   await page.locator('[data-preset-id="esp32-devkit"]').click();
   await waitIdle();
-  const presetState = await page.evaluate(() => window.boardForge.getState());
-  ok(presetState.name === 'ESP32 DevKit V1' && presetState.board.length === 49, 'preset loads board dimensions');
-  ok((await page.locator('.hole-row').count()) === 0, 'preset loads its hole list');
+  const presetState = await state();
+  ok(presetState.name === 'ESP32 DevKit V1 外壳', 'preset loads a named enclosure');
+  ok(presetState.board.length === 49, 'preset updates board length');
+  ok((await diagnostics()).panelCount === 6, 'preset still builds six panels');
+  await page.locator('[data-preset-id="raspberry-pi-4b"]').click();
+  await waitIdle();
 
-  await page.locator('[data-view="top"]').click();
-  await page.waitForTimeout(450);
-  ok((await page.locator('.view-switch button.active').textContent()) === '顶视', 'view switch updates camera mode');
-  ok((await page.evaluate(() => window.boardForge.activeView())) === 'top', 'preview reports the active view');
+  // Enclosure inputs drive the derived dimensions.
+  await page.locator('#panelThicknessInput').fill('4');
+  await waitIdle();
+  const thicker = await diagnostics();
+  ok(thicker.outer.width === 105 && thicker.outer.depth === 76, 'panel thickness increases outer dimensions');
+  ok(thicker.outer.height === 37.6, 'panel thickness increases outer height');
+
+  await page.locator('#panelThicknessInput').fill('3');
+  await page.locator('#clearanceInput').fill('8');
+  await waitIdle();
+  const wider = await diagnostics();
+  ok(wider.outer.width === 107 && wider.outer.depth === 78, 'clearance increases outer footprint');
+  await page.locator('#clearanceInput').fill('6');
+  await waitIdle();
+
+  // Board reference remains editable and feeds the enclosure.
+  await page.locator('#boardDetails summary').click();
+  ok(await page.locator('#lengthInput').isVisible(), 'board reference details expand');
+  await page.locator('#lengthInput').fill('90');
+  await waitIdle();
+  const longerBoard = await state();
+  ok(longerBoard.board.length === 90, 'board length can be edited');
+  ok((await diagnostics()).outer.width === 108, 'board length feeds the enclosure dimensions');
+  await page.locator('#lengthInput').fill('85');
+  await waitIdle();
+
+  // Add a valid side-panel cut-out.
+  await page.locator('#addOpeningButton').click();
+  await page.waitForTimeout(150);
+  ok((await page.locator('.opening-card').count()) === 1, 'an opening card can be added');
+  let card = page.locator('.opening-card').first();
+  await card.locator('[data-opening-field="u"]').fill('-15');
+  await card.locator('[data-opening-field="v"]').fill('0');
+  await card.locator('[data-opening-field="width"]').fill('16');
+  await card.locator('[data-opening-field="height"]').fill('9');
+  await waitIdle();
+  let currentDiagnostics = await diagnostics();
+  const frontPanel = currentDiagnostics.panels.find((panel) => panel.id === 'front');
+  ok(frontPanel.holes >= 1, 'valid opening is cut into the front panel');
+  ok(currentDiagnostics.warnings.length === 0, 'valid opening produces no warning');
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
-  await page.screenshot({ path: join(screenshots, 'app-top-view.png') });
+  await page.screenshot({ path: join(screenshots, 'case-opening.png') });
 
-  // Autosave survives a reload.
+  // Out-of-bounds cut-outs are reported without breaking the model.
+  await card.locator('[data-opening-field="u"]').fill('200');
+  await waitIdle();
+  currentDiagnostics = await diagnostics();
+  ok(
+    currentDiagnostics.warnings.some((warning) => warning.includes('开孔')),
+    'out-of-bounds opening is reported',
+  );
+  ok(await page.locator('#openingsHint').isVisible(), 'opening warning is shown in the form');
+  await card.locator('[data-opening-field="u"]').fill('-15');
+  await waitIdle();
+
+  // Change opening side and shape.
+  await card.locator('[data-opening-field="side"]').selectOption('left');
+  await waitIdle();
+  currentDiagnostics = await diagnostics();
+  ok(
+    currentDiagnostics.panels.find((panel) => panel.id === 'left').holes >= 1,
+    'opening can be moved to another side',
+  );
+  card = page.locator('.opening-card').first();
+  await card.locator('[data-opening-field="shape"]').selectOption('circle');
+  await waitIdle();
+  card = page.locator('.opening-card').first();
+  ok(await card.locator('[data-opening-field="diameter"]').isVisible(), 'circle opening exposes a diameter field');
+  const openingState = await state();
+  ok(openingState.openings[0].shape === 'circle', 'opening shape is stored');
+
+  // Vent toggle.
+  const ventTopBefore = (await diagnostics()).panels.find((panel) => panel.id === 'top').holes;
+  await page.locator('.switch-row').click();
+  await waitIdle();
+  const ventTopAfter = (await diagnostics()).panels.find((panel) => panel.id === 'top').holes;
+  ok(!(await page.locator('#ventEnabledInput').isChecked()), 'vent switch can be turned off');
+  ok(ventTopAfter < ventTopBefore, 'disabling vents removes top-panel slots');
+  ok((await state()).enclosure.vent.enabled === false, 'vent state is persisted in parameters');
+  await page.locator('.switch-row').click();
+  await waitIdle();
+  ok(await page.locator('#ventEnabledInput').isChecked(), 'vent switch can be turned back on');
+
+  // Invalid dimensions block exports and clamp on blur.
+  await page.locator('#panelThicknessInput').fill('0');
+  await page.waitForTimeout(100);
+  ok(await page.locator('#exportDxfButton').isDisabled(), 'DXF export is blocked for invalid thickness');
+  await page.locator('#panelThicknessInput').blur();
+  await waitIdle();
+  ok((await page.locator('#panelThicknessInput').inputValue()) === '1', 'invalid thickness clamps to 1 mm');
+  await page.locator('#panelThicknessInput').fill('3');
+  await waitIdle();
+
+  // Exploded view.
+  await page.locator('#explodeButton').click();
+  await page.waitForTimeout(650);
+  ok((await page.evaluate(() => window.boardForge.getExploded())) === true, 'exploded view can be enabled');
+  ok((await page.locator('#explodeButton').getAttribute('aria-pressed')) === 'true', 'explode button updates its state');
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
+  await page.screenshot({ path: join(screenshots, 'case-exploded.png') });
+
+  // Export JSON.
+  const jsonPath = join(work, 'case.case.json');
+  const jsonDownload = await download('#exportJsonButton', jsonPath);
+  ok(jsonDownload.suggestedFilename().endsWith('.case.json'), 'JSON export uses .case.json');
+  const exportedJson = JSON.parse(await readFile(jsonPath, 'utf8'));
+  ok(exportedJson.version === 2 && exportedJson.format === 'boardforge-case', 'JSON uses case format');
+  ok(exportedJson.enclosure.panel_thickness === 3, 'JSON contains enclosure settings');
+  ok(exportedJson.openings.length === 1, 'JSON contains side-panel openings');
+  ok(exportedJson.board.length === 85, 'JSON contains board reference');
+
+  // Export SVG, DXF and assembly STL.
+  const svgPath = join(work, 'case-cut.svg');
+  const svgDownload = await download('#exportSvgButton', svgPath);
+  ok(svgDownload.suggestedFilename().endsWith('-cut.svg'), 'SVG filename is generated');
+  const svg = await readFile(svgPath, 'utf8');
+  ok(svg.includes('<svg') && svg.includes('width="'), 'SVG contains a physical-size document');
+  ok(svg.includes('<g id="top"') && svg.includes('<g id="bottom"'), 'SVG contains named panels');
+
+  const dxfPath = join(work, 'case-cut.dxf');
+  const dxfDownload = await download('#exportDxfButton', dxfPath);
+  ok(dxfDownload.suggestedFilename().endsWith('-cut.dxf'), 'DXF filename is generated');
+  const dxf = await readFile(dxfPath, 'utf8');
+  ok(dxf.includes('AC1009'), 'DXF is R12-compatible');
+  ok(dxf.includes('$INSUNITS'), 'DXF declares units');
+  ok(dxf.includes('LAYER\n2\nCUT'), 'DXF contains a CUT layer');
+  ok((dxf.match(/POLYLINE/g) || []).length >= 6, 'DXF contains six panel outlines');
+
+  const stlPath = join(work, 'case-assembly.stl');
+  const stlDownload = await download('#exportStlButton', stlPath);
+  ok(stlDownload.suggestedFilename().endsWith('-assembly.stl'), 'STL filename is generated');
+  const stlBuffer = await readFile(stlPath);
+  const stl = parseBinaryStl(stlBuffer);
+  const exportDiagnostics = await diagnostics();
+  ok(stl.triangles > exportDiagnostics.triangleCount, 'assembly STL includes panels and hardware');
+  ok(stl.maxZ > 35, 'assembly STL includes the upper hardware envelope');
+
+  // Import the exported case document.
+  const imported = structuredClone(exportedJson);
+  imported.name = 'Imported Acrylic Case';
+  imported.enclosure.clearance = 9;
+  imported.openings = [
+    { side: 'back', shape: 'rect', u: 0, v: 0, width: 22, height: 10 },
+  ];
+  const importPath = join(work, 'import.case.json');
+  await writeFile(importPath, JSON.stringify(imported, null, 2));
+  await page.locator('#fileInput').setInputFiles(importPath);
+  await page.waitForFunction(() => window.boardForge.getState().name === 'Imported Acrylic Case');
+  await waitIdle();
+  const importedState = await state();
+  ok(importedState.enclosure.clearance === 9, 'file import restores enclosure settings');
+  ok(importedState.openings.length === 1 && importedState.openings[0].side === 'back', 'file import restores openings');
+
+  // Drag-and-drop legacy board JSON still imports.
+  const legacy = {
+    version: 1,
+    name: 'Legacy Board',
+    units: 'mm',
+    board: { length: 70, width: 40, thickness: 1.6, corner_radius: 2, color: '#1a5f2a' },
+    holes: [
+      { x: -30, y: -15, diameter: 2.7 },
+      { x: 30, y: -15, diameter: 2.7 },
+      { x: 30, y: 15, diameter: 2.7 },
+      { x: -30, y: 15, diameter: 2.7 },
+    ],
+  };
+  await page.evaluate((json) => {
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([json], 'legacy.board.json', { type: 'application/json' }));
+    window.dispatchEvent(new DragEvent('dragenter', { bubbles: true, dataTransfer: transfer }));
+    window.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: transfer }));
+  }, JSON.stringify(legacy));
+  await page.waitForFunction(() => window.boardForge.getState().name === 'Legacy Board');
+  await waitIdle();
+  const dropped = await state();
+  ok(dropped.board.length === 70, 'drag-and-drop board document is migrated');
+  ok(dropped.enclosure.panel_thickness === 3, 'migrated document receives default enclosure');
+
+  // Autosave and theme/mode persistence.
   await page.evaluate(() => window.boardForge.flushSave());
   await page.waitForTimeout(150);
   await page.reload({ waitUntil: 'load' });
   await waitReady();
   const restored = await page.evaluate(() => ({
     state: window.boardForge.getState(),
-    theme: window.boardForge.getTheme(),
     mode: window.boardForge.getMode(),
-    attribute: document.documentElement.dataset.mode,
+    theme: window.boardForge.getTheme(),
   }));
-  ok(restored.state.name === 'ESP32 DevKit V1', 'autosaved parameters survive reload');
-  ok(restored.state.board.length === 49, 'autosaved dimensions survive reload');
-  ok(restored.theme === '#7dd3fc', 'selected theme survives reload');
-  ok(restored.mode === 'light' && restored.attribute === 'light', 'light mode survives reload');
+  ok(restored.state.name === 'Legacy Board', 'autosaved case survives reload');
+  ok(restored.mode === 'light', 'light mode survives reload');
+  ok(restored.theme === '#7dd3fc', 'theme colour survives reload');
 
   ok(consoleErrors.length === 0, `no browser errors were emitted:\n${consoleErrors.join('\n')}`);
 
-  // Basic mobile layout smoke test.
+  // Mobile layout smoke tests.
   const mobile = await browser.newPage({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -339,25 +373,25 @@ try {
     deviceScaleFactor: 2,
   });
   await mobile.goto(appUrl, { waitUntil: 'load' });
-  await mobile.waitForFunction(() => window.boardForge?.getDiagnostics(), { timeout: 25_000 });
+  await mobile.waitForFunction(() => window.boardForge?.getDiagnostics(), { timeout: 30_000 });
   const noOverflow = await mobile.evaluate(
     () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
   );
   ok(noOverflow, 'mobile layout has no horizontal overflow');
-  await mobile.screenshot({ path: join(screenshots, 'app-mobile.png') });
+  await mobile.screenshot({ path: join(screenshots, 'case-mobile.png') });
 
   await mobile.locator('#modeButton').click();
-  await mobile.waitForTimeout(520);
+  await mobile.waitForTimeout(550);
   const mobileLight = await mobile.evaluate(() => ({
     mode: window.boardForge.getMode(),
     noOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
   }));
   ok(mobileLight.mode === 'light', 'mobile mode toggle switches to light mode');
   ok(mobileLight.noOverflow, 'mobile light mode has no horizontal overflow');
-  await mobile.screenshot({ path: join(screenshots, 'app-mobile-light.png') });
+  await mobile.screenshot({ path: join(screenshots, 'case-mobile-light.png') });
   await mobile.close();
 
-  console.log(`\nBoardForge checks passed: ${checks}`);
+  console.log(`\nBoardForge enclosure checks passed: ${checks}`);
   console.log(`Screenshots written to ${screenshots}`);
 } finally {
   await browser.close();

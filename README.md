@@ -1,17 +1,21 @@
 # BoardForge
 
-开发板参数化 3D 模型生成器。输入板子的长、宽、厚、圆角和安装孔，实时得到带真实通孔的 3D 模型，并导出：
+开发板**亚克力六面外壳**参数化生成器。
 
-- **STL**：二进制、单位毫米、封闭可打印实体；
-- **`.board.json`**：纯文本参数文件，可以再次导入继续编辑。
+输入开发板尺寸、安装孔、板材厚度和接口开孔，实时生成六块亚克力板互锁的完整盒体，并导出：
 
-整个应用是纯前端实现，没有后端，也不上传任何模型或参数。
+- **DXF**：六块面板的激光切割文件，单位毫米；
+- **SVG**：同样的切割路径预览；
+- **STL**：带螺丝和角柱的 3D 装配预览；
+- **`.case.json`**：可再次导入继续编辑的外壳参数文件。
 
-![BoardForge 桌面端界面](screenshots/app-default.png)
+纯前端实现，没有后端，不上传任何参数或模型。
+
+![外壳装配预览](screenshots/case-default.png)
 
 ## 快速开始
 
-### 直接使用单文件版本
+### 直接使用
 
 打开：
 
@@ -19,32 +23,32 @@
 dist/index.html
 ```
 
-这是一个已内联 CSS 和 JavaScript 的独立 HTML 文件，可以直接双击通过 `file://` 打开。无需服务器、无需网络。浏览器需要支持 WebGL。
+这是内联了 CSS 和 JavaScript 的独立 HTML 文件，可以直接双击通过 `file://` 打开，无需服务器和网络。浏览器需要支持 WebGL。
 
-### 本地开发
+### 开发
 
 ```bash
 npm install
 npm run dev
 ```
 
-打开终端提示的地址（默认 `http://127.0.0.1:4173/`）。源码使用原生 ES Module 和 import map，不依赖框架。
+打开 `http://127.0.0.1:4173/`。
 
-### 构建单文件版本
+### 构建
 
 ```bash
 npm run build
 ```
 
-输出 `dist/index.html`，并打印原始体积和 gzip 体积。当前构建约为 **789 KB 原始 / 208 KB gzip**。
+输出单文件 `dist/index.html`，同时复制示例文件。
 
-### 生成示例文件
+### 生成示例
 
 ```bash
 npm run samples
 ```
 
-会重新生成 `samples/` 中的 `.board.json` 和 `.stl`。
+生成 `samples/` 中的 `.case.json`、`.dxf`、`.svg` 和装配 `.stl`。
 
 ### 自动化验收
 
@@ -52,126 +56,111 @@ npm run samples
 npm test
 ```
 
-自动执行 105 项检查（42 项几何/schema/主题测试 + 63 项无头浏览器检查），包括实时重建、参数校验、CSG 回退路径、JSON 导入导出、二进制 STL 三角面/封闭流形检查、拖拽导入、深色/浅色模式切换与持久化、主题色、本地自动保存和移动端布局。测试截图输出到 `screenshots/`。
+运行 124 项检查：
 
-## 已实现功能
+- 55 项 schema / 几何 / 导出单元检查；
+- 69 项无头浏览器端到端检查。
 
-### MVP
+测试覆盖六面板生成、板子固定柱、接口开孔、通风槽、参数联动、JSON 导入、DXF/SVG 导出、STL 装配、深浅色模式和移动端布局。
 
-- 长度、宽度、厚度、圆角半径参数输入，带范围校验；
-- 安装孔增删和 X / Y / 直径编辑；
-- Three.js 实时预览，支持旋转、缩放、平移和四个预设视角；
-- 使用 `three-bvh-csg` 的真实布尔减法（Subtract）挖通孔；
-- 模型水密性检查，未通过时阻止 STL 导出；
-- 二进制 STL 导出，单位毫米，导出前进行拓扑检查；
-- `.board.json` 导入/导出，也支持拖拽 `.board.json` 到页面；
-- 本地自动保存，刷新后恢复上次参数。
+## 外壳结构
 
-### 额外完成
+默认是一套完整六面盒：
 
-- 树莓派 4B、树莓派 Zero、ESP32 DevKit 三个预设；
-- 深色 / 浅色模式一键切换，默认深色，偏好保存在本机；
-- 板子颜色自定义（默认深绿色 `#1a5f2a`）；
-- 界面主题色可设置：7 个预设色 + 任意自定义颜色，自动保存并跨刷新保留；
-- 安装孔越界提示与自动跳过；
-- 安装孔重叠提示；CSG 会实际合并重叠孔；
-- 模型三角面数、实体体积、生成耗时统计；
-- 文件名校验与自动命名（如 `board-85x56.stl`）；
-- 深色桌面优先界面和可用的移动端布局；
-- 独立单文件构建，可离线运行。
+- 顶板、底板、前面板、后面板、左面板、右面板共 6 块 3 mm 亚克力板；
+- 侧板上下边缘通过榫舌插入顶/底板的开口槽；
+- 前后板与左右板通过竖向榫舌/榫槽互锁；
+- 四角安装 M3 内螺纹角柱，顶板和底板用 M3 螺丝锁紧；
+- 开发板由四角底部铜柱悬空固定，留出走线和散热空间；
+- 顶/底板可自动生成等距圆角通风槽；
+- 侧板可以添加矩形或圆形 USB、HDMI、Type-C 等接口开孔。
 
-![界面主题色设置](screenshots/theme-menu.png)
+默认开发板为 85 × 56 × 1.6 mm 的树莓派 4B 尺寸，外壳外形为约 **103 × 74 × 35.6 mm**。
 
-浅色模式：
+> 这是激光切割 + 标准 M3 五金的结构。侧板榫卯依赖材料厚度公差；导出的 DXF 是名义尺寸，建议先切一小段验证 3 mm 板材的实际厚度和激光补偿。
 
-![浅色模式](screenshots/app-light.png)
+![爆炸视图](screenshots/case-exploded.png)
 
-## 参数文件
+## 参数
 
-文件格式规范见 [docs/FORMAT.md](docs/FORMAT.md)。
+### 开发板参考
 
-约定：
+- 长度、宽度、厚度、圆角；
+- 安装孔 X / Y / 孔径；
+- 板子颜色（仅 3D 参考模型）；
+- 三个预设：树莓派 4B、树莓派 Zero、ESP32 DevKit。
 
-- 原点在板子中心；
-- **+X 向右**，**+Y 向前**（俯视时向上）；
-- Z 轴为板厚方向，模型在 Z 方向居中；
-- 所有长度单位为毫米。
+开发板参数决定外壳内腔、底板固定孔、铜柱位置和整体外尺寸。
 
-界面主题色和深色/浅色模式保存在浏览器本地，不属于板子参数，因此不会写入 `.board.json`。板子本身的颜色仍由 `board.color` 控制。
+### 外壳
 
-示例：
+| 参数 | 默认值 | 说明 |
+| --- | ---: | --- |
+| 板厚 | 3 mm | 亚克力板厚度，同时决定榫槽宽度 |
+| 板边间隙 | 6 mm | 开发板边缘到内腔侧壁的距离 |
+| 底部净空 | 8 mm | 底板到开发板底面的铜柱高度 |
+| 顶部净空 | 20 mm | 开发板上方到顶板内侧的元件空间 |
+| M3 通孔 | 3.4 mm | 外壳角柱和顶/底板螺丝过孔 |
+| 榫卯配合间隙 | 0.15 mm | 榫舌/榫槽的单边配合余量 |
 
-```json
-{
-  "version": 1,
-  "name": "Raspberry Pi 4B",
-  "units": "mm",
-  "board": {
-    "length": 85,
-    "width": 56,
-    "thickness": 1.6,
-    "corner_radius": 3,
-    "color": "#1a5f2a"
-  },
-  "holes": [
-    { "x": -39, "y": -24.5, "diameter": 2.7 },
-    { "x": 39, "y": -24.5, "diameter": 2.7 },
-    { "x": 39, "y": 24.5, "diameter": 2.7 },
-    { "x": -39, "y": 24.5, "diameter": 2.7 }
-  ],
-  "meta": {
-    "created": "2026-11-12T09:00:00+08:00",
-    "updated": "2026-11-12T09:00:00+08:00"
-  }
-}
+外壳尺寸自动推导：
+
+```text
+外壳宽 = 板长 + 2 × 板边间隙 + 2 × 板厚
+外壳深 = 板宽 + 2 × 板边间隙 + 2 × 板厚
+外壳高 = 2 × 板厚 + 底部净空 + 板厚 + 顶部净空
 ```
 
-## 技术实现
+### 接口开孔
 
-### 依赖
+- 选择前面板、后面板、左面板或右面板；
+- 选择矩形或圆形；
+- `U` 为水平方向、`V` 为垂直方向，以侧板中心为原点；
+- 超出可加工区域或被边缘榫槽影响的孔会被跳过，并在界面提示。
 
-- `three` — 渲染、几何和 OrbitControls；
-- `three-bvh-csg` — 真实 CSG 布尔减法；
-- `esbuild` — 仅用于生成单文件发行版；
-- `playwright-core` — 自动化验收测试。
+### 通风槽
 
-运行时没有 UI 框架、状态管理库、后端或网络请求。第三方 MIT 许可与版权声明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，构建时也会嵌入单文件 HTML。
+- 顶板和底板同步生成；
+- 可设置槽数量、槽宽和槽长；
+- 自动居中、避开角柱螺丝孔与底板固定孔；
+- 面板过小时会自动减少槽数并提示。
 
-### 模型生成流程
+## 导出
 
-1. 使用 `THREE.Shape` 构建带圆角的矩形轮廓；
-2. 拉伸为有厚度的板子（Z 方向居中）；
-3. 用 `three-bvh-csg` 将每个安装孔圆柱从板子上 **Subtract** 掉；
-4. 以 0.0001 mm 容差焊接顶点，检查边界边、非流形边和退化三角形；
-5. 检查通过后加入预览并允许 STL 导出。
+### DXF
 
-如果 CSG 内核在极端输入下失败或结果未通过水密检查，会退回到“带孔轮廓拉伸”的建模方式。该方式仍然生成真实的通孔，只是不能对重叠孔做并集。CSG 正常工作时（默认参数和常规输入）使用布尔路径。
+主导出格式。R12 兼容、单位毫米、所有六块面板排在一张切割图上，轮廓与孔洞都在 `CUT` 图层。
 
-### STL 导出
+DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 kerf。
 
-`src/stl-export.js` 是独立实现的最小二进制 STL writer：
+### SVG
 
-- 80 字节 header；
-- little-endian `uint32` 三角面数；
-- 每个三角面 50 字节：法线 + 三个顶点 + 属性；
-- 单位保持毫米，不缩放；
-- 导出前检查坐标是否有效。
+与 DXF 相同的面板切割路径，适合预览、排版检查或交付给支持 SVG 的切割服务。
 
-验收测试会重新解析导出的 STL，检查三角面数量、边界尺寸，并焊接顶点后确认每条边恰好被两个三角形共享，即封闭流形。
+### STL
 
-### 轻量策略
+导出的 STL 是**装配预览**，包含六块面板、M3 角柱、铜柱和螺丝头。它不是单一可打印实体，也不包含开发板参考模型。
 
-- 源码为原生 ES Module，无框架；
-- 生产构建由 esbuild tree-shake 并压缩；
-- 没有字体、图标库或外部 CDN 请求；图标为内联 SVG；
-- 单文件构建可直接离线打开。
+### 参数文件
 
-### 性能
+`.case.json` 是 UTF-8 JSON，包含开发板、外壳、开孔、通风和元数据。格式规范见 [docs/FORMAT.md](docs/FORMAT.md)。
 
-- 默认 85 × 56 × 1.6 mm、4 孔：约 60–75 ms 完成 CSG 与拓扑检查；
-- 参数输入使用约 48 ms 防抖，之后同步生成模型；
-- 20 孔、200 × 150 mm 的压力测试约 0.39 s；
-- 常见 20–200 mm 开发板尺寸都在设计范围内（参数上限为 500 mm）。
+## 功能
+
+- 六面板亚克力榫卯外壳实时 3D 预览；
+- 爆炸视图；
+- 板子参考模型和安装孔驱动外壳固定柱；
+- 矩形/圆形侧板开孔；
+- 自动通风槽；
+- DXF / SVG / STL / JSON 四种导出；
+- 拖拽 `.case.json` 导入，兼容旧 `.board.json`；
+- 参数范围校验；
+- 深色 / 浅色模式；
+- 可配置界面主题色；
+- 本地自动保存；
+- 桌面和移动端布局。
+
+![浅色模式](screenshots/case-light.png)
 
 ## 项目结构
 
@@ -180,38 +169,56 @@ npm test
 ├─ index.html                 开发版页面
 ├─ styles.css                 界面样式
 ├─ src/
-│  ├─ app.js                  表单、导入导出、交互和状态管理
-│  ├─ board-geometry.js       圆角板、CSG 挖孔、水密性检查
-│  ├─ preview.js              Three.js 场景、灯光、OrbitControls、视角
-│  ├─ schema.js               参数规范化、校验、预设、文件名
+│  ├─ app.js                  参数、预览、导入导出和交互
+│  ├─ case-schema.js          外壳文档格式、默认值、尺寸推导
+│  ├─ case-geometry.js        六面板榫卯几何、开孔、通风、固定柱
+│  ├─ preview.js              Three.js 透明亚克力装配预览
+│  ├─ vector-export.js        DXF/SVG 切割文件生成
+│  ├─ board-geometry.js       开发板参考模型与 CSG 挖孔
+│  ├─ schema.js               开发板参数与预设
 │  ├─ stl-export.js           二进制 STL writer
-│  └─ theme.js                深色/浅色模式、界面主题色和本地持久化
+│  └─ theme.js                深浅色、界面主题色和本地持久化
 ├─ scripts/
 │  ├─ build.mjs               构建单文件版本
 │  ├─ serve.mjs               零依赖静态服务器
-│  ├─ generate-samples.mjs    生成示例 JSON/STL
-│  ├─ test-geometry.mjs       schema 与几何单元检查
+│  ├─ generate-samples.mjs    生成示例 JSON/DXF/SVG/STL
+│  ├─ test-geometry.mjs       schema/几何/导出单元测试
 │  └─ test-app.mjs            浏览器端验收测试
-├─ samples/                   示例参数文件和 STL
-├─ screenshots/               桌面端、移动端和视角截图
-├─ THIRD_PARTY_NOTICES.md     第三方 MIT 许可声明
+├─ samples/                   示例外壳参数和切割文件
+├─ screenshots/               桌面端、移动端、爆炸和开孔截图
 ├─ docs/
-│  ├─ FORMAT.md               参数文件格式规范
-│  └─ IMPLEMENTATION.md       实现说明与验收记录
+│  ├─ FORMAT.md               外壳参数文件规范
+│  └─ IMPLEMENTATION.md       实现说明
 └─ dist/index.html            独立可运行发行版
 ```
 
+## 构建与性能
+
+- `dist/index.html` 约 **838 KB 原始 / 220 KB gzip**；
+- 默认 85 × 56 mm 外壳构建约 70–110 ms；
+- 生产构建使用 esbuild tree-shake 和压缩；
+- 无外部字体、图标库或 CDN 请求。
+
+## 示例文件
+
+- `samples/raspberry-pi-4b-case.case.json`
+- `samples/raspberry-pi-4b-case-cut.dxf`
+- `samples/raspberry-pi-4b-case-cut.svg`
+- `samples/raspberry-pi-4b-case-assembly.stl`
+- `samples/sensor-node-case.case.json`
+- `samples/sensor-node-case-cut.dxf`
+- `samples/sensor-node-case-cut.svg`
+- `samples/sensor-node-case-assembly.stl`
+
 ## 已知边界
 
-- 当前只支持圆角矩形板，不支持异形多边形；
-- 超出板边的孔会提示并跳过，不会自动裁切一个缺口；
-- 重叠孔在 CSG 路径中会合并，直接建模回退路径会跳过重叠项；
-- 不做外壳生成、账号、云存储、在线分享或元件库；
-- 3D 预览需要 WebGL；STL/JSON 导出能力不依赖 WebGL（JSON 始终可用，STL 需要模型生成成功）。
+- 目前只有矩形六面盒，不支持斜面、异形轮廓或圆角外框；
+- 接口开孔需要手动设置位置，不自动识别板上的连接器；
+- 亚克力榫卯公差受板材实际厚度、激光 kerf 和装配方式影响；
+- 3D 预览中的透明材质和硬件是视觉近似；
+- STL 是装配预览，不是单件可打印模型；
+- 不包含自动生成 2D 工程图、螺丝清单采购链接或 3MF 导出。
 
-## 示例产物
+## License
 
-- `samples/raspberry-pi-4b.board.json`
-- `samples/raspberry-pi-4b.stl`
-- `samples/sensor-node-60x40.board.json`
-- `samples/sensor-node-60x40.stl`
+第三方 MIT 许可见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。

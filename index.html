@@ -7,9 +7,9 @@
     <meta name="theme-color" content="#0b0f0c" />
     <meta
       name="description"
-      content="BoardForge — 输入开发板尺寸与安装孔，实时生成可 3D 打印的水密模型，并导出 STL 与可编辑参数文件。"
+      content="BoardForge — 根据开发板尺寸和安装孔，生成六面板亚克力榫卯外壳，导出 DXF/SVG 切割文件与 3D 装配预览。"
     />
-    <title>BoardForge · 开发板参数化 3D 生成器</title>
+    <title>BoardForge · 开发板亚克力外壳生成器</title>
     <script>
       try {
         if (localStorage.getItem('boardforge.mode.v1') === 'light') {
@@ -51,14 +51,14 @@
           </span>
           <span class="brand-copy">
             <span class="brand-name">BoardForge</span>
-            <span class="brand-sub">开发板参数化 3D 生成器</span>
+            <span class="brand-sub">开发板亚克力外壳生成器</span>
           </span>
         </div>
 
         <div class="topbar-center" aria-hidden="true">
           <span class="topbar-tag"><span class="tag-dot"></span> 纯前端运算</span>
           <span class="topbar-divider"></span>
-          <span class="topbar-tag">单位 · mm</span>
+          <span class="topbar-tag">DXF · mm</span>
         </div>
 
         <div class="topbar-actions">
@@ -83,7 +83,7 @@
                   <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
                 </button>
               </div>
-              <p class="theme-help">只改变界面强调色，不改变板子颜色。</p>
+              <p class="theme-help">只改变界面强调色，不改变板子或亚克力颜色。</p>
               <div class="theme-presets" id="themePresets" role="group" aria-label="主题色预设"></div>
               <label class="theme-custom">
                 <span>自定义颜色</span>
@@ -97,7 +97,7 @@
               <button class="theme-reset" id="resetThemeButton" type="button">恢复默认主题</button>
             </div>
           </div>
-          <button class="btn btn-quiet" id="newButton" type="button" title="恢复默认板型">
+          <button class="btn btn-quiet" id="newButton" type="button" title="恢复默认外壳">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6.5A6.5 6.5 0 1 1 3.5 10M4 2.5v4h4" /></svg>
             <span>新建</span>
           </button>
@@ -109,7 +109,7 @@
       </header>
 
       <main class="workspace">
-        <aside class="sidebar" aria-label="模型参数">
+        <aside class="sidebar" aria-label="外壳参数">
           <div class="sidebar-scroll">
             <section class="panel-section project-section">
               <div class="section-kicker">
@@ -117,71 +117,137 @@
                 <span class="autosave-label" id="autosaveLabel">本地自动保存</span>
               </div>
               <label class="name-field">
-                <span class="sr-only">开发板名称</span>
-                <input id="boardName" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="未命名开发板" />
+                <span class="sr-only">外壳名称</span>
+                <input id="caseName" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="未命名开发板外壳" />
               </label>
               <div class="preset-row" id="presetRow" aria-label="常用开发板预设"></div>
+              <div class="project-tags">
+                <span>六面板榫卯</span>
+                <span>M3 五金</span>
+                <span>激光切割</span>
+              </div>
             </section>
 
             <section class="panel-section">
               <div class="section-heading">
                 <div>
-                  <span class="eyebrow"><span class="step">01</span> 板子尺寸</span>
-                  <h2>定义基础形体</h2>
+                  <span class="eyebrow"><span class="step">01</span> 外壳尺寸</span>
+                  <h2>盒体与板材</h2>
                 </div>
                 <span class="section-unit">mm</span>
               </div>
 
               <div class="dimension-grid">
                 <label class="field">
-                  <span class="field-label">长度 <em>X</em></span>
+                  <span class="field-label">板厚 <em>T</em></span>
                   <span class="input-shell">
-                    <input id="lengthInput" data-path="board.length" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="85" />
+                    <input id="panelThicknessInput" data-case="panel_thickness" type="number" min="1" max="10" step="0.1" inputmode="decimal" value="3" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
                 <label class="field">
-                  <span class="field-label">宽度 <em>Y</em></span>
+                  <span class="field-label">板边间隙 <em>C</em></span>
                   <span class="input-shell">
-                    <input id="widthInput" data-path="board.width" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="56" />
+                    <input id="clearanceInput" data-case="clearance" type="number" min="1" max="60" step="0.5" inputmode="decimal" value="6" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
                 <label class="field">
-                  <span class="field-label">厚度 <em>Z</em></span>
+                  <span class="field-label">底部净空 <em>B</em></span>
                   <span class="input-shell">
-                    <input id="thicknessInput" data-path="board.thickness" type="number" min="0.2" max="50" step="0.1" inputmode="decimal" value="1.6" />
+                    <input id="bottomGapInput" data-case="bottom_gap" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="8" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
                 <label class="field">
-                  <span class="field-label">圆角 <em>R</em></span>
+                  <span class="field-label">顶部净空 <em>H</em></span>
                   <span class="input-shell">
-                    <input id="cornerInput" data-path="board.corner_radius" type="number" min="0" max="28" step="0.1" inputmode="decimal" value="3" />
+                    <input id="topGapInput" data-case="top_gap" type="number" min="2" max="180" step="0.5" inputmode="decimal" value="20" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
               </div>
 
-              <div class="color-row">
-                <span class="field-label">板子颜色</span>
-                <label class="color-control" title="选择板子颜色">
-                  <input id="colorInput" type="color" value="#1a5f2a" />
-                  <span class="color-swatch" id="colorSwatch"></span>
-                  <span class="color-hex" id="colorHex">#1A5F2A</span>
-                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
-                </label>
+              <div class="derived-row">
+                <div>
+                  <span>外壳外形</span>
+                  <b id="outerDimensions">103 × 74 × 35.6</b>
+                </div>
+                <div>
+                  <span>内腔净高</span>
+                  <b id="innerHeight">29.6 mm</b>
+                </div>
               </div>
-              <p class="field-note" id="dimensionNote">圆角半径不能超过短边的一半。</p>
+              <p class="field-note" id="enclosureNote">外壳尺寸由开发板尺寸、板边间隙和板厚自动推导。</p>
             </section>
 
-            <section class="panel-section holes-section">
+            <section class="panel-section">
               <div class="section-heading">
                 <div>
-                  <span class="eyebrow"><span class="step">02</span> 安装孔</span>
-                  <h2>定位与开孔</h2>
+                  <span class="eyebrow"><span class="step">02</span> 固定与散热</span>
+                  <h2>M3 角柱与通风槽</h2>
                 </div>
-                <span class="count-pill" id="holeCount">4 / 32</span>
+                <span class="section-unit">M3</span>
+              </div>
+
+              <div class="dimension-grid compact-grid">
+                <label class="field">
+                  <span class="field-label">M3 通孔</span>
+                  <span class="input-shell">
+                    <input id="screwClearanceInput" data-case="screw_clearance" type="number" min="2" max="8" step="0.1" inputmode="decimal" value="3.4" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field-label">榫卯配合间隙</span>
+                  <span class="input-shell">
+                    <input id="fitInput" data-case="fit" type="number" min="0" max="0.8" step="0.05" inputmode="decimal" value="0.15" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+              </div>
+
+              <label class="switch-row">
+                <span class="switch-copy">
+                  <strong>顶板 / 底板通风槽</strong>
+                  <small>在上下盖板中央生成等距圆角槽</small>
+                </span>
+                <input id="ventEnabledInput" type="checkbox" checked />
+                <span class="switch-track" aria-hidden="true"><span></span></span>
+              </label>
+
+              <div class="dimension-grid compact-grid vent-fields" id="ventFields">
+                <label class="field">
+                  <span class="field-label">槽数量 <em>N</em></span>
+                  <span class="input-shell">
+                    <input id="ventCountInput" data-case="vent.count" type="number" min="1" max="14" step="1" inputmode="numeric" value="5" />
+                    <span class="unit">条</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field-label">槽宽</span>
+                  <span class="input-shell">
+                    <input id="ventWidthInput" data-case="vent.slot_width" type="number" min="0.6" max="12" step="0.1" inputmode="decimal" value="2.4" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field-label">槽长</span>
+                  <span class="input-shell">
+                    <input id="ventLengthInput" data-case="vent.slot_length" type="number" min="4" max="260" step="0.5" inputmode="decimal" value="28" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section class="panel-section openings-section">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow"><span class="step">03</span> 接口开孔</span>
+                  <h2>侧板开口</h2>
+                </div>
+                <span class="count-pill" id="openingCount">0 / 32</span>
               </div>
 
               <div class="coordinate-note">
@@ -191,27 +257,91 @@
                     <circle cx="18" cy="18" r="2.5" />
                   </svg>
                 </span>
-                <span>原点位于板子中心<br /><b>+X</b> 向右 · <b>+Y</b> 向前</span>
+                <span>位置相对侧板中心<br /><b>U</b> 水平 · <b>V</b> 垂直</span>
               </div>
 
-              <div class="hole-list" id="holeList"></div>
-              <p class="holes-hint" id="holesHint" hidden></p>
-              <button class="add-hole-button" id="addHoleButton" type="button">
+              <div class="opening-list" id="openingList"></div>
+              <p class="holes-hint" id="openingsHint" hidden></p>
+              <button class="add-hole-button" id="addOpeningButton" type="button">
                 <span class="plus">+</span>
-                <span>添加安装孔</span>
+                <span>添加接口开孔</span>
               </button>
             </section>
+
+            <details class="panel-section board-details" id="boardDetails">
+              <summary>
+                <div class="board-summary-copy">
+                  <span class="eyebrow"><span class="step">04</span> 开发板参考</span>
+                  <strong id="boardSummary">85 × 56 × 1.6 mm · 4 孔</strong>
+                </div>
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+              </summary>
+              <div class="board-details-body">
+                <div class="dimension-grid">
+                  <label class="field">
+                    <span class="field-label">长度 <em>X</em></span>
+                    <span class="input-shell">
+                      <input id="lengthInput" data-path="board.length" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="85" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">宽度 <em>Y</em></span>
+                    <span class="input-shell">
+                      <input id="widthInput" data-path="board.width" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="56" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">厚度 <em>Z</em></span>
+                    <span class="input-shell">
+                      <input id="thicknessInput" data-path="board.thickness" type="number" min="0.2" max="50" step="0.1" inputmode="decimal" value="1.6" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">圆角 <em>R</em></span>
+                    <span class="input-shell">
+                      <input id="cornerInput" data-path="board.corner_radius" type="number" min="0" max="28" step="0.1" inputmode="decimal" value="3" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                </div>
+
+                <div class="color-row">
+                  <span class="field-label">板子颜色</span>
+                  <label class="color-control" title="选择板子参考颜色">
+                    <input id="colorInput" type="color" value="#1a5f2a" />
+                    <span class="color-swatch" id="colorSwatch"></span>
+                    <span class="color-hex" id="colorHex">#1A5F2A</span>
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                  </label>
+                </div>
+
+                <div class="board-hole-heading">
+                  <span class="field-label">安装孔</span>
+                  <span class="count-pill" id="holeCount">4 / 32</span>
+                </div>
+                <div class="hole-list" id="holeList"></div>
+                <p class="field-note" id="holeNote">板孔用于生成底部固定柱和底板过孔。</p>
+                <button class="add-hole-button" id="addHoleButton" type="button">
+                  <span class="plus">+</span>
+                  <span>添加板子安装孔</span>
+                </button>
+              </div>
+            </details>
 
             <section class="panel-section info-section">
               <details class="info-details">
                 <summary>
-                  <span>参数文件与坐标约定</span>
+                  <span>外壳结构与导出说明</span>
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                 </summary>
                 <div class="info-body">
-                  <p><code>.board.json</code> 是纯文本参数文件，保留全部尺寸、孔位和颜色，可再次导入继续编辑。</p>
-                  <p>坐标原点为板子中心，X 轴向右，Y 轴向前，Z 轴为板厚方向。所有数值单位为毫米。</p>
-                  <p>导出 STL 前会自动检查模型水密性；超出板边的孔会被跳过，互相重叠的孔会真实合并。</p>
+                  <p>六块亚克力板通过榫舌/榫槽互锁，四角使用 M3 螺柱连接顶板和底板；开发板由底部铜柱悬空固定。</p>
+                  <p>开孔坐标以侧板中心为原点，U 为水平方向，V 为垂直方向。侧板开孔超出可加工区域时会自动跳过并提示。</p>
+                  <p>DXF/SVG 为毫米单位激光切割路径，未包含激光补偿；STL 是装配预览，不是单块可打印实体。</p>
+                  <p>板子颜色只影响 3D 参考模型，不进入切割文件。</p>
                 </div>
               </details>
             </section>
@@ -220,56 +350,70 @@
           <footer class="export-bar">
             <div class="export-meta">
               <span class="export-label">导出</span>
-              <span class="export-filename" id="exportFilename">board-85x56</span>
+              <span class="export-filename" id="exportFilename">board-case-103x74x35.6</span>
               <span class="export-status" id="exportStatus">准备就绪</span>
             </div>
-            <div class="export-actions">
-              <button class="btn btn-secondary" id="exportJsonButton" type="button">
+            <div class="export-actions export-actions-4">
+              <button class="btn btn-secondary" id="exportJsonButton" type="button" title="导出可再次编辑的外壳参数文件">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0 3.5-3.5M10 13 6.5 9.5M4 15.5h12" /></svg>
-                <span>参数文件</span>
+                <span>参数</span>
               </button>
-              <button class="btn btn-primary" id="exportStlButton" type="button">
+              <button class="btn btn-secondary" id="exportSvgButton" type="button" title="导出六块面板的 SVG 切割预览">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h8l4 4v9H4zM12 3.5v4h4" /><path d="M7 12h6M7 14.5h4" /></svg>
+                <span>SVG</span>
+              </button>
+              <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，单位毫米">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h9l5 5v9H3zM12 3v5h5" /><path d="m6.5 15 3-4 2 2 2-3" /></svg>
+                <span>切割 DXF</span>
+              </button>
+              <button class="btn btn-secondary" id="exportStlButton" type="button" title="导出 3D 装配预览 STL">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m10 2.5 7 4v7l-7 4-7-4v-7l7-4Z" /><path d="m3 6.5 7 4 7-4M10 10.5v7" /></svg>
-                <span>导出 STL</span>
+                <span>STL 装配</span>
               </button>
             </div>
           </footer>
         </aside>
 
-        <section class="viewport" id="viewport" aria-label="3D 模型预览">
+        <section class="viewport" id="viewport" aria-label="外壳 3D 装配预览">
           <canvas id="previewCanvas"></canvas>
           <div class="scene-vignette" aria-hidden="true"></div>
 
           <div class="scene-toolbar">
             <div class="scene-heading">
-              <span class="eyebrow"><span class="live-dot"></span> 实时预览</span>
-              <h1 id="previewName">未命名开发板</h1>
+              <span class="eyebrow"><span class="live-dot"></span> 装配预览</span>
+              <h1 id="previewName">未命名开发板外壳</h1>
             </div>
-            <div class="view-switch" role="group" aria-label="视角">
-              <button type="button" data-view="iso" class="active">立体</button>
-              <button type="button" data-view="top">顶视</button>
-              <button type="button" data-view="front">前视</button>
-              <button type="button" data-view="right">右视</button>
+            <div class="scene-controls">
+              <div class="view-switch" role="group" aria-label="视角">
+                <button type="button" data-view="iso" class="active">立体</button>
+                <button type="button" data-view="top">顶视</button>
+                <button type="button" data-view="front">前视</button>
+                <button type="button" data-view="right">右视</button>
+              </div>
+              <button class="explode-button" id="explodeButton" type="button" aria-pressed="false" title="展开六块面板">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v4M10 13.5v4M2.5 10h4M13.5 10h4M5 5l2.5 2.5M12.5 12.5 15 15M15 5l-2.5 2.5M7.5 12.5 5 15" /></svg>
+                <span>爆炸</span>
+              </button>
             </div>
           </div>
 
           <div class="model-status is-good" id="modelStatus" role="status">
             <span class="status-dot"></span>
-            <span id="modelStatusText">正在准备模型</span>
+            <span id="modelStatusText">正在准备外壳</span>
           </div>
 
           <div class="scene-stats" id="sceneStats">
             <div class="stat">
-              <span class="stat-label">外形</span>
+              <span class="stat-label">外壳外形</span>
               <span class="stat-value" id="statSize">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">三角面</span>
-              <span class="stat-value" id="statTriangles">—</span>
+              <span class="stat-label">内腔</span>
+              <span class="stat-value" id="statInner">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">实体体积</span>
-              <span class="stat-value" id="statVolume">—</span>
+              <span class="stat-label">板材 / 五金</span>
+              <span class="stat-value" id="statMaterial">—</span>
             </div>
             <div class="stat">
               <span class="stat-label">生成耗时</span>
@@ -296,7 +440,7 @@
                 <svg viewBox="0 0 32 32" fill="none"><path d="M16 5v14m0 0 5-5m-5 5-5-5M7 23v3h18v-3" /></svg>
               </span>
               <strong>松手导入参数文件</strong>
-              <span>支持 .board.json</span>
+              <span>.case.json / .board.json</span>
             </div>
           </div>
 
@@ -308,7 +452,7 @@
       </main>
     </div>
 
-    <input id="fileInput" type="file" accept=".json,.board.json,application/json" hidden />
+    <input id="fileInput" type="file" accept=".json,.case.json,.board.json,application/json" hidden />
     <div class="toast-root" id="toastRoot" aria-live="polite" aria-atomic="false"></div>
 
     <script type="module" src="./src/app.js"></script>

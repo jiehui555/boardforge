@@ -1,0 +1,87 @@
+{
+  "version": 2,
+  "format": "boardforge-case",
+  "name": "Raspberry Pi 4B 外壳",
+  "units": "mm",
+  "board": {
+    "length": 85,
+    "width": 56,
+    "thickness": 1.6,
+    "corner_radius": 3,
+    "color": "#1a5f2a"
+  },
+  "holes": [
+    {
+      "x": -39,
+      "y": -24.5,
+      "diameter": 2.7
+    },
+    {
+      "x": 39,
+      "y": -24.5,
+      "diameter": 2.7
+    },
+    {
+      "x": 39,
+      "y": 24.5,
+      "diameter": 2.7
+    },
+    {
+      "x": -39,
+      "y": 24.5,
+      "diameter": 2.7
+    }
+  ],
+  "enclosure": {
+    "panel_thickness": 3,
+    "clearance": 6,
+    "bottom_gap": 8,
+    "top_gap": 20,
+    "screw_clearance": 3.4,
+    "fit": 0.15,
+    "vent": {
+      "enabled": true,
+      "count": 5,
+      "slot_width": 2.4,
+      "slot_length": 30
+    }
+  },
+  "openings": [
+    {
+      "side": "front",
+      "shape": "rect",
+      "u": -22,
+      "v": 0,
+      "width": 15,
+      "height": 8
+    },
+    {
+      "side": "front",
+      "shape": "rect",
+      "u": 0,
+      "v": 0,
+      "width": 15,
+      "height": 8
+    },
+    {
+      "side": "front",
+      "shape": "rect",
+      "u": 23,
+      "v": 0,
+      "width": 16,
+      "height": 9
+    },
+    {
+      "side": "left",
+      "shape": "rect",
+      "u": 0,
+      "v": 0,
+      "width": 10,
+      "height": 5
+    }
+  ],
+  "meta": {
+    "created": "2026-11-12T09:00:00+08:00",
+    "updated": "2026-11-12T09:00:00+08:00"
+  }
+}

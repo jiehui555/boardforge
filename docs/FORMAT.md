@@ -1,35 +1,71 @@
-# BoardForge 参数文件格式（`.board.json`）
+# BoardForge 外壳参数文件格式（`.case.json`）
 
-BoardForge 的参数文件是 UTF-8 纯文本 JSON。它包含完整可编辑状态，不包含模型三角面数据；3D 模型总是由参数重新生成。
-
-`.board.json` 只描述板子本身。界面主题色和深色/浅色模式属于浏览器本地偏好，分别保存在 `localStorage` 的 `boardforge.theme.v1` 和 `boardforge.mode.v1` 中，不会写入参数文件；板子颜色仍由 `board.color` 控制。
+BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三角面数据，3D 模型、DXF/SVG 切割路径和装配 STL 都由参数实时重新生成。
 
 ## 坐标约定
 
-- 原点：板子平面的中心；
-- **+X**：向右；
-- **+Y**：向前（从正上方俯视时向上）；
-- **Z**：板厚方向，几何在 Z 方向居中，范围约为 `-thickness/2` 到 `+thickness/2`；
-- 所有尺寸单位：毫米（mm）。
+- 开发板平面原点在板子中心；
+- X 轴向右，Y 轴向前；
+- Z 轴为高度方向；
+- 外壳以外壳中心为对称中心，开发板位于内腔中心；
+- 所有尺寸单位为毫米。
 
-安装孔坐标写在 `holes` 数组里，表示孔的**中心点**；`diameter` 是孔直径，不是半径。
+侧板开孔使用**面板局部坐标**：
+
+- 每个侧板有自己的中心原点；
+- `u` 为水平方向，`v` 为垂直方向；
+- 对前/后面板，`u` 对应外壳的 X 方向；
+- 对左/右面板，`u` 对应外壳的 Y 方向；
+- 左/右面板和后面板会在装配时镜像，但导出的参数仍使用面板自身视角的 `u/v`。
 
 ## 顶层结构
 
 ```json
 {
-  "version": 1,
-  "name": "未命名开发板",
+  "version": 2,
+  "format": "boardforge-case",
+  "name": "Raspberry Pi 4B 外壳",
   "units": "mm",
   "board": {
-    "length": 85.0,
-    "width": 56.0,
+    "length": 85,
+    "width": 56,
     "thickness": 1.6,
-    "corner_radius": 3.0,
+    "corner_radius": 3,
     "color": "#1a5f2a"
   },
   "holes": [
-    { "x": -39.0, "y": -24.5, "diameter": 2.7 }
+    { "x": -39, "y": -24.5, "diameter": 2.7 }
+  ],
+  "enclosure": {
+    "panel_thickness": 3,
+    "clearance": 6,
+    "bottom_gap": 8,
+    "top_gap": 20,
+    "screw_clearance": 3.4,
+    "fit": 0.15,
+    "vent": {
+      "enabled": true,
+      "count": 5,
+      "slot_width": 2.4,
+      "slot_length": 28
+    }
+  },
+  "openings": [
+    {
+      "side": "front",
+      "shape": "rect",
+      "u": -15,
+      "v": 0,
+      "width": 16,
+      "height": 9
+    },
+    {
+      "side": "left",
+      "shape": "circle",
+      "u": 0,
+      "v": 0,
+      "diameter": 12
+    }
   ],
   "meta": {
     "created": "2026-11-12T09:00:00+08:00",
@@ -38,64 +74,98 @@ BoardForge 的参数文件是 UTF-8 纯文本 JSON。它包含完整可编辑状
 }
 ```
 
-| 字段 | 类型 | 说明 | 缺失时 |
-| --- | --- | --- | --- |
-| `version` | number | 格式版本，目前为 `1` | 按 `1` 读取 |
-| `name` | string | 开发板名称，最长 80 字符 | `未命名开发板` |
-| `units` | string | 当前仅支持 `mm` | 按 `mm` 读取 |
-| `board` | object | 板子基础尺寸 | 使用默认板子 |
-| `holes` | array | 安装孔数组，最多 32 个 | 自动生成四角孔 |
-| `meta` | object | 创建/更新时间 | 当前时间 |
-| `board.length` | number | X 方向长度，10–500 mm | `85` |
-| `board.width` | number | Y 方向宽度，10–500 mm | `56` |
-| `board.thickness` | number | Z 方向厚度，0.2–50 mm | `1.6` |
-| `board.corner_radius` | number | 四角圆角半径，0–短边的一半 | `3`（自动限制） |
-| `board.color` | string | `#rrggbb` 颜色 | `#1a5f2a` |
-| `holes[].x` | number | 孔中心的 X 坐标，-500–500 mm | `0` |
-| `holes[].y` | number | 孔中心的 Y 坐标，-500–500 mm | `0` |
-| `holes[].diameter` | number | 孔径，0.1–100 mm | `2.7` |
+## 字段说明
 
-## 导入兼容规则
+### 顶层
 
-导入时不会因为单个字段异常而直接崩溃：
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `version` | number | 当前外壳格式版本为 `2` |
+| `format` | string | 固定为 `boardforge-case` |
+| `name` | string | 外壳名称，最长 80 字符 |
+| `units` | string | 仅支持 `mm` |
+| `board` | object | 开发板参考尺寸 |
+| `holes` | array | 开发板安装孔，最多 32 个 |
+| `enclosure` | object | 亚克力板和固定结构参数 |
+| `openings` | array | 侧板开孔，最多 32 个 |
+| `meta` | object | 创建/更新时间 |
 
-1. 数字字段缺失或不是有效数字时使用默认值；
-2. 超出范围的值会被限制到允许范围内，并给出提示；
-3. 圆角半径会自动限制到 `min(length, width) / 2` 以内；
-4. 非对象类型的孔项会被忽略；
-5. 孔数量超过 32 个时只保留前 32 个；
-6. 更高 `version` 的文件仍尝试按 version 1 读取，并提示兼容模式；
-7. 未知字段会被忽略，不会报错。
+### 开发板参考
 
-如果文件根节点不是对象，或者既没有 `board` 也没有 `holes`，导入会被拒绝并提示文件类型不正确。
+| 字段 | 默认值 | 范围 |
+| --- | ---: | --- |
+| `board.length` | 85 mm | 10–500 |
+| `board.width` | 56 mm | 10–500 |
+| `board.thickness` | 1.6 mm | 0.2–50 |
+| `board.corner_radius` | 3 mm | 0–短边的一半 |
+| `board.color` | `#1a5f2a` | `#rrggbb` |
+| `holes[].x` | 0 | -500–500 |
+| `holes[].y` | 0 | -500–500 |
+| `holes[].diameter` | 2.7 mm | 0.1–100 |
 
-## 几何与可打印性
+板子颜色只影响 3D 参考模型，不会进入切割文件。
 
-- 板子轮廓为圆角矩形；`corner_radius = 0` 表示直角；
-- 安装孔必须完整落在板子轮廓内（保留 0.05 mm 安全边距），否则该孔会被跳过；
-- 互相重叠的孔是合法输入，CSG 模型会把它们合并成一个开孔；
-- 导出的 STL 只包含通过水密性检查的当前模型；
-- STL 没有内嵌单位，坐标直接以毫米写入，切片软件导入时需保持默认的毫米单位。
+### 外壳
+
+| 字段 | 默认值 | 范围 | 说明 |
+| --- | ---: | --- | --- |
+| `panel_thickness` | 3 mm | 1–10 | 亚克力板厚度 |
+| `clearance` | 6 mm | 1–60 | 板边到内壁的间隙 |
+| `bottom_gap` | 8 mm | 0–100 | 板子离底板的铜柱高度 |
+| `top_gap` | 20 mm | 2–180 | 板上方净空 |
+| `screw_clearance` | 3.4 mm | 2–8 | M3 过孔直径 |
+| `fit` | 0.15 mm | 0–0.8 | 榫舌/榫槽配合间隙 |
+| `vent.enabled` | true | boolean | 是否生成通风槽 |
+| `vent.count` | 5 | 1–14 | 槽数量 |
+| `vent.slot_width` | 2.4 mm | 0.6–12 | 槽宽 |
+| `vent.slot_length` | 28 mm | 4–260 | 槽长 |
+
+尺寸推导：
+
+```text
+innerWidth  = board.length + 2 × clearance
+innerDepth  = board.width  + 2 × clearance
+innerHeight = bottom_gap + board.thickness + top_gap
+outerWidth  = innerWidth  + 2 × panel_thickness
+outerDepth  = innerDepth  + 2 × panel_thickness
+outerHeight = innerHeight + 2 × panel_thickness
+```
+
+### 侧板开孔
+
+| 字段 | 说明 |
+| --- | --- |
+| `side` | `front` / `back` / `left` / `right` |
+| `shape` | `rect` / `circle` |
+| `u` | 水平中心，相对侧板中心 |
+| `v` | 垂直中心，相对侧板中心 |
+| `width` / `height` | 矩形宽高，仅 `rect` |
+| `diameter` | 圆孔直径，仅 `circle` |
+
+开孔需位于侧板可加工区域。越界开孔会被跳过并产生警告，不会阻断整个外壳生成。
+
+## 旧版 `.board.json` 兼容
+
+导入只有 `board` / `holes` 的旧版 `.board.json` 时：
+
+- 保留板子尺寸和孔位；
+- 自动补充默认外壳参数（3 mm 板材、6 mm 间隙等）；
+- 自动补充空的 `openings` 数组；
+- 导出时升级为 `.case.json` version 2。
 
 ## 文件名
 
-导出时自动生成：
+默认：
 
-- 参数文件：`<名称或 board>-<长度>x<宽度>.board.json`
-- STL：`<名称或 board>-<长度>x<宽度>.stl`
+- 参数：`board-case-<外壳宽>x<外壳深>x<外壳高>.case.json`
+- DXF：`...-cut.dxf`
+- SVG：`...-cut.svg`
+- STL：`...-assembly.stl`
 
-例如默认参数：
+如果设置了外壳名称，则使用名称代替 `board-case`。
 
-```text
-board-85x56.board.json
-board-85x56.stl
-```
+## 说明
 
-名称中的文件系统非法字符会替换为 `-`，空白会替换为 `_`。
-
-## 示例
-
-见：
-
-- `samples/raspberry-pi-4b.board.json`
-- `samples/sensor-node-60x40.board.json`
+- UI 主题色和深色/浅色模式属于浏览器偏好，保存在 `localStorage`，不属于外壳参数文件。
+- DXF/SVG 使用毫米单位，未包含激光 kerf 补偿。
+- STL 是装配预览，不是单一的可打印外壳实体。

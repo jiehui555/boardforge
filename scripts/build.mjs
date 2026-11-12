@@ -64,7 +64,9 @@ await writeFile(resolve(dist, 'index.html'), html, 'utf8');
 await rm(assets, { recursive: true, force: true });
 
 try {
-  await cp(resolve(root, 'samples'), resolve(dist, 'samples'), { recursive: true });
+  const distSamples = resolve(dist, 'samples');
+  await rm(distSamples, { recursive: true, force: true });
+  await cp(resolve(root, 'samples'), distSamples, { recursive: true });
   await cp(
     resolve(root, 'THIRD_PARTY_NOTICES.md'),
     resolve(dist, 'THIRD_PARTY_NOTICES.md'),

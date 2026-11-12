@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "format": "boardforge-case",
+  "name": "Sensor Node 60×40 外壳",
+  "units": "mm",
+  "board": {
+    "length": 60,
+    "width": 40,
+    "thickness": 1.6,
+    "corner_radius": 4,
+    "color": "#214f2f"
+  },
+  "holes": [
+    {
+      "x": -24.5,
+      "y": -15,
+      "diameter": 3.2
+    },
+    {
+      "x": 24.5,
+      "y": -15,
+      "diameter": 3.2
+    },
+    {
+      "x": 24.5,
+      "y": 15,
+      "diameter": 3.2
+    },
+    {
+      "x": -24.5,
+      "y": 15,
+      "diameter": 3.2
+    }
+  ],
+  "enclosure": {
+    "panel_thickness": 3,
+    "clearance": 6,
+    "bottom_gap": 8,
+    "top_gap": 16,
+    "screw_clearance": 3.4,
+    "fit": 0.15,
+    "vent": {
+      "enabled": true,
+      "count": 4,
+      "slot_width": 2.4,
+      "slot_length": 28
+    }
+  },
+  "openings": [
+    {
+      "side": "left",
+      "shape": "circle",
+      "u": 0,
+      "v": 0,
+      "diameter": 12
+    },
+    {
+      "side": "front",
+      "shape": "rect",
+      "u": 0,
+      "v": 0,
+      "width": 18,
+      "height": 8
+    }
+  ],
+  "meta": {
+    "created": "2026-11-12T09:00:00+08:00",
+    "updated": "2026-11-12T09:00:00+08:00"
+  }
+}
