@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b0f0c" />
+    <meta
+      name="description"
+      content="BoardForge — 输入开发板尺寸与安装孔，实时生成可 3D 打印的水密模型，并导出 STL 与可编辑参数文件。"
+    />
+    <title>BoardForge · 开发板参数化 3D 生成器</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231a5f2a'/%3E%3Ccircle cx='20' cy='20' r='4' fill='%230b0f0c'/%3E%3Ccircle cx='44' cy='20' r='4' fill='%230b0f0c'/%3E%3Ccircle cx='20' cy='44' r='4' fill='%230b0f0c'/%3E%3Ccircle cx='44' cy='44' r='4' fill='%230b0f0c'/%3E%3Cpath d='M28 28h8v8h-8z' fill='%238ff0a3'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+    <!-- DEV_IMPORTMAP_START -->
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "./node_modules/three/build/three.module.js",
+          "three/addons/": "./node_modules/three/examples/jsm/",
+          "three-mesh-bvh": "./node_modules/three-mesh-bvh/build/index.module.js",
+          "three-bvh-csg": "./node_modules/three-bvh-csg/build/index.module.js"
+        }
+      }
+    </script>
+    <!-- DEV_IMPORTMAP_END -->
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand" aria-label="BoardForge">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none">
+              <rect x="3" y="5" width="34" height="30" rx="7" fill="currentColor" />
+              <circle cx="12" cy="13.5" r="2.4" fill="#0b0f0c" />
+              <circle cx="28" cy="13.5" r="2.4" fill="#0b0f0c" />
+              <circle cx="12" cy="26.5" r="2.4" fill="#0b0f0c" />
+              <circle cx="28" cy="26.5" r="2.4" fill="#0b0f0c" />
+              <path d="M17.5 17.5h5v5h-5z" fill="#0b0f0c" opacity=".75" />
+              <path d="M12 13.5h5M23 13.5h5M12 26.5h5M23 26.5h5" stroke="#9ff0b0" stroke-width=".8" opacity=".6" />
+            </svg>
+          </span>
+          <span class="brand-copy">
+            <span class="brand-name">BoardForge</span>
+            <span class="brand-sub">开发板参数化 3D 生成器</span>
+          </span>
+        </div>
+
+        <div class="topbar-center" aria-hidden="true">
+          <span class="topbar-tag"><span class="tag-dot"></span> 纯前端运算</span>
+          <span class="topbar-divider"></span>
+          <span class="topbar-tag">单位 · mm</span>
+        </div>
+
+        <div class="topbar-actions">
+          <button class="btn btn-quiet" id="newButton" type="button" title="恢复默认板型">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6.5A6.5 6.5 0 1 1 3.5 10M4 2.5v4h4" /></svg>
+            <span>新建</span>
+          </button>
+          <button class="btn btn-quiet" id="importButton" type="button">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3-3m-3 3-3-3M4 12.5v3A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
+            <span>导入参数</span>
+          </button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar" aria-label="模型参数">
+          <div class="sidebar-scroll">
+            <section class="panel-section project-section">
+              <div class="section-kicker">
+                <span class="eyebrow">项目</span>
+                <span class="autosave-label" id="autosaveLabel">本地自动保存</span>
+              </div>
+              <label class="name-field">
+                <span class="sr-only">开发板名称</span>
+                <input id="boardName" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="未命名开发板" />
+              </label>
+              <div class="preset-row" id="presetRow" aria-label="常用开发板预设"></div>
+            </section>
+
+            <section class="panel-section">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow"><span class="step">01</span> 板子尺寸</span>
+                  <h2>定义基础形体</h2>
+                </div>
+                <span class="section-unit">mm</span>
+              </div>
+
+              <div class="dimension-grid">
+                <label class="field">
+                  <span class="field-label">长度 <em>X</em></span>
+                  <span class="input-shell">
+                    <input id="lengthInput" data-path="board.length" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="85" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field-label">宽度 <em>Y</em></span>
+                  <span class="input-shell">
+                    <input id="widthInput" data-path="board.width" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="56" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field-label">厚度 <em>Z</em></span>
+                  <span class="input-shell">
+                    <input id="thicknessInput" data-path="board.thickness" type="number" min="0.2" max="50" step="0.1" inputmode="decimal" value="1.6" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+                <label class="field">
+                  <span class="field-label">圆角 <em>R</em></span>
+                  <span class="input-shell">
+                    <input id="cornerInput" data-path="board.corner_radius" type="number" min="0" max="28" step="0.1" inputmode="decimal" value="3" />
+                    <span class="unit">mm</span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="color-row">
+                <span class="field-label">板子颜色</span>
+                <label class="color-control" title="选择板子颜色">
+                  <input id="colorInput" type="color" value="#1a5f2a" />
+                  <span class="color-swatch" id="colorSwatch"></span>
+                  <span class="color-hex" id="colorHex">#1A5F2A</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </label>
+              </div>
+              <p class="field-note" id="dimensionNote">圆角半径不能超过短边的一半。</p>
+            </section>
+
+            <section class="panel-section holes-section">
+              <div class="section-heading">
+                <div>
+                  <span class="eyebrow"><span class="step">02</span> 安装孔</span>
+                  <h2>定位与开孔</h2>
+                </div>
+                <span class="count-pill" id="holeCount">4 / 32</span>
+              </div>
+
+              <div class="coordinate-note">
+                <span class="axis-icon" aria-hidden="true">
+                  <svg viewBox="0 0 36 36" fill="none">
+                    <path d="M18 31V5M18 5l-3 4M18 5l3 4M5 18h26M31 18l-4-3M31 18l-4 3" />
+                    <circle cx="18" cy="18" r="2.5" />
+                  </svg>
+                </span>
+                <span>原点位于板子中心<br /><b>+X</b> 向右 · <b>+Y</b> 向前</span>
+              </div>
+
+              <div class="hole-list" id="holeList"></div>
+              <p class="holes-hint" id="holesHint" hidden></p>
+              <button class="add-hole-button" id="addHoleButton" type="button">
+                <span class="plus">+</span>
+                <span>添加安装孔</span>
+              </button>
+            </section>
+
+            <section class="panel-section info-section">
+              <details class="info-details">
+                <summary>
+                  <span>参数文件与坐标约定</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </summary>
+                <div class="info-body">
+                  <p><code>.board.json</code> 是纯文本参数文件，保留全部尺寸、孔位和颜色，可再次导入继续编辑。</p>
+                  <p>坐标原点为板子中心，X 轴向右，Y 轴向前，Z 轴为板厚方向。所有数值单位为毫米。</p>
+                  <p>导出 STL 前会自动检查模型水密性；超出板边的孔会被跳过，互相重叠的孔会真实合并。</p>
+                </div>
+              </details>
+            </section>
+          </div>
+
+          <footer class="export-bar">
+            <div class="export-meta">
+              <span class="export-label">导出</span>
+              <span class="export-filename" id="exportFilename">board-85x56</span>
+              <span class="export-status" id="exportStatus">准备就绪</span>
+            </div>
+            <div class="export-actions">
+              <button class="btn btn-secondary" id="exportJsonButton" type="button">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0 3.5-3.5M10 13 6.5 9.5M4 15.5h12" /></svg>
+                <span>参数文件</span>
+              </button>
+              <button class="btn btn-primary" id="exportStlButton" type="button">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m10 2.5 7 4v7l-7 4-7-4v-7l7-4Z" /><path d="m3 6.5 7 4 7-4M10 10.5v7" /></svg>
+                <span>导出 STL</span>
+              </button>
+            </div>
+          </footer>
+        </aside>
+
+        <section class="viewport" id="viewport" aria-label="3D 模型预览">
+          <canvas id="previewCanvas"></canvas>
+          <div class="scene-vignette" aria-hidden="true"></div>
+
+          <div class="scene-toolbar">
+            <div class="scene-heading">
+              <span class="eyebrow"><span class="live-dot"></span> 实时预览</span>
+              <h1 id="previewName">未命名开发板</h1>
+            </div>
+            <div class="view-switch" role="group" aria-label="视角">
+              <button type="button" data-view="iso" class="active">立体</button>
+              <button type="button" data-view="top">顶视</button>
+              <button type="button" data-view="front">前视</button>
+              <button type="button" data-view="right">右视</button>
+            </div>
+          </div>
+
+          <div class="model-status is-good" id="modelStatus" role="status">
+            <span class="status-dot"></span>
+            <span id="modelStatusText">正在准备模型</span>
+          </div>
+
+          <div class="scene-stats" id="sceneStats">
+            <div class="stat">
+              <span class="stat-label">外形</span>
+              <span class="stat-value" id="statSize">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">三角面</span>
+              <span class="stat-value" id="statTriangles">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">实体体积</span>
+              <span class="stat-value" id="statVolume">—</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">生成耗时</span>
+              <span class="stat-value" id="statTime">—</span>
+            </div>
+          </div>
+
+          <div class="scene-hint">
+            <span><b>拖动</b> 旋转</span>
+            <span><b>滚轮</b> 缩放</span>
+            <span><b>右键</b> 平移</span>
+          </div>
+
+          <div class="scene-notices" id="sceneNotices" hidden></div>
+
+          <div class="canvas-loading" id="canvasLoading">
+            <span class="spinner"></span>
+            <span>正在初始化 3D 预览</span>
+          </div>
+
+          <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
+            <div class="drop-card">
+              <span class="drop-icon">
+                <svg viewBox="0 0 32 32" fill="none"><path d="M16 5v14m0 0 5-5m-5 5-5-5M7 23v3h18v-3" /></svg>
+              </span>
+              <strong>松手导入参数文件</strong>
+              <span>支持 .board.json</span>
+            </div>
+          </div>
+
+          <div class="fatal-card" id="fatalCard" hidden>
+            <strong>3D 预览无法启动</strong>
+            <p id="fatalMessage">当前浏览器不支持 WebGL。</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <input id="fileInput" type="file" accept=".json,.board.json,application/json" hidden />
+    <div class="toast-root" id="toastRoot" aria-live="polite" aria-atomic="false"></div>
+
+    <script type="module" src="./src/app.js"></script>
+  </body>
+</html>

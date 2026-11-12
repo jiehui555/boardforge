@@ -1,0 +1,23 @@
+{
+  "name": "3dcase",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "node scripts/serve.mjs . 4173",
+    "build": "node scripts/build.mjs",
+    "preview": "node scripts/serve.mjs dist 4174",
+    "samples": "node scripts/generate-samples.mjs",
+    "test": "node scripts/test-geometry.mjs && node scripts/build.mjs && node scripts/test-app.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright-core": "^1.65.0",
+    "three": "^0.187.0",
+    "three-bvh-csg": "^0.0.18"
+  }
+}
