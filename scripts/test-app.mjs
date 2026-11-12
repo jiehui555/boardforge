@@ -154,6 +154,29 @@ try {
 
   await page.screenshot({ path: join(screenshots, 'app-default.png') });
 
+  // Interface theme is configurable, persisted separately and does not alter the board.
+  await page.locator('#themeButton').click();
+  ok(await page.locator('#themeMenu').isVisible(), 'theme menu opens from the top bar');
+  ok(
+    (await page.locator('#themeButton').getAttribute('aria-expanded')) === 'true',
+    'theme menu updates its expanded state',
+  );
+  await page.locator('[data-theme-preset="sky"]').click();
+  const themeState = await page.evaluate(() => ({
+    selected: window.boardForge.getTheme(),
+    accent: getComputedStyle(document.documentElement)
+      .getPropertyValue('--accent')
+      .trim(),
+    boardColor: window.boardForge.getState().board.color,
+    stored: localStorage.getItem('boardforge.theme.v1'),
+  }));
+  ok(themeState.selected === '#7dd3fc', 'theme preset updates the UI accent colour');
+  ok(themeState.accent === '#7dd3fc', 'theme accent is exposed to CSS variables');
+  ok(themeState.boardColor === '#1a5f2a', 'theme colour does not change the board colour');
+  ok(themeState.stored?.includes('#7dd3fc'), 'theme preference is saved locally');
+  await page.keyboard.press('Escape');
+  ok(await page.locator('#themeMenu').isHidden(), 'theme menu closes with Escape');
+
   // Real-time dimension change.
   await page.locator('#lengthInput').fill('100');
   await waitIdle();
@@ -272,9 +295,13 @@ try {
   await page.waitForTimeout(150);
   await page.reload({ waitUntil: 'load' });
   await waitReady();
-  const restored = await page.evaluate(() => window.boardForge.getState());
-  ok(restored.name === 'ESP32 DevKit V1', 'autosaved parameters survive reload');
-  ok(restored.board.length === 49, 'autosaved dimensions survive reload');
+  const restored = await page.evaluate(() => ({
+    state: window.boardForge.getState(),
+    theme: window.boardForge.getTheme(),
+  }));
+  ok(restored.state.name === 'ESP32 DevKit V1', 'autosaved parameters survive reload');
+  ok(restored.state.board.length === 49, 'autosaved dimensions survive reload');
+  ok(restored.theme === '#7dd3fc', 'selected theme survives reload');
 
   ok(consoleErrors.length === 0, `no browser errors were emitted:\n${consoleErrors.join('\n')}`);
 

@@ -17,6 +17,15 @@ import {
 import { buildBoardModel, computeVolume } from './board-geometry.js';
 import { BoardPreview } from './preview.js';
 import { createBinaryStl } from './stl-export.js';
+import {
+  DEFAULT_THEME_COLOR,
+  THEME_PRESETS,
+  applyTheme,
+  clearThemeColor,
+  normalizeThemeColor,
+  readThemeColor,
+  saveThemeColor,
+} from './theme.js';
 
 const STORAGE_KEY = 'boardforge.autosave.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
@@ -37,6 +46,14 @@ const dom = {
   holeCount: document.querySelector('#holeCount'),
   holesHint: document.querySelector('#holesHint'),
   addHoleButton: document.querySelector('#addHoleButton'),
+  themeButton: document.querySelector('#themeButton'),
+  themeMenu: document.querySelector('#themeMenu'),
+  themePresets: document.querySelector('#themePresets'),
+  themeColorInput: document.querySelector('#themeColorInput'),
+  themeColorHex: document.querySelector('#themeColorHex'),
+  themeColorPreview: document.querySelector('#themeColorPreview'),
+  themeCloseButton: document.querySelector('#themeCloseButton'),
+  resetThemeButton: document.querySelector('#resetThemeButton'),
   newButton: document.querySelector('#newButton'),
   importButton: document.querySelector('#importButton'),
   fileInput: document.querySelector('#fileInput'),
@@ -68,6 +85,7 @@ const TRASH_ICON = `
   </svg>`;
 
 let state = createDefaultState();
+let currentThemeColor = DEFAULT_THEME_COLOR;
 let savedStateRestored = false;
 let selectedPresetId = null;
 let preview = null;
@@ -89,6 +107,7 @@ const pendingInvalid = new Set();
 bootstrap();
 
 function bootstrap() {
+  initializeTheme();
   const restored = readStoredState();
   if (restored) {
     state = restored.state;
@@ -493,6 +512,76 @@ function loadPreset(id) {
   scheduleBuild({ fit: true, immediate: true });
   queueSave();
   toast(`已载入 ${preset.label}`, `${preset.detail} mm · ${preset.holes.length} 个安装孔`);
+}
+
+/* ── Interface theme ────────────────────────────────────────────────────── */
+
+function initializeTheme() {
+  renderThemePresets();
+  applyThemeColor(readThemeColor(), { persist: false });
+}
+
+function renderThemePresets() {
+  dom.themePresets.innerHTML = THEME_PRESETS.map(
+    (preset) => `
+      <button class="theme-preset" type="button" data-theme-preset="${preset.id}"
+        data-theme-color="${preset.color}" aria-label="${preset.label}主题"
+        title="${preset.label}">
+        <span class="theme-preset-dot" style="background:${preset.color}"></span>
+      </button>`,
+  ).join('');
+}
+
+function applyThemeColor(value, { persist = true } = {}) {
+  const tokens = applyTheme(value);
+  currentThemeColor = normalizeThemeColor(tokens.accent);
+  if (persist) saveThemeColor(currentThemeColor);
+  syncThemeUi();
+}
+
+function syncThemeUi() {
+  dom.themeColorInput.value = currentThemeColor;
+  dom.themeColorHex.textContent = currentThemeColor.toUpperCase();
+  dom.themeColorPreview.style.background = currentThemeColor;
+  dom.themePresets.querySelectorAll('[data-theme-color]').forEach((button) => {
+    const active = normalizeThemeColor(button.dataset.themeColor) === currentThemeColor;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function resetTheme() {
+  const color = clearThemeColor();
+  applyThemeColor(color, { persist: false });
+}
+
+function setThemeMenuOpen(open) {
+  dom.themeMenu.hidden = !open;
+  dom.themeButton.setAttribute('aria-expanded', String(open));
+  if (open) {
+    document.addEventListener('pointerdown', handleThemeOutsidePointer, true);
+    document.addEventListener('keydown', handleThemeEscape);
+  } else {
+    document.removeEventListener('pointerdown', handleThemeOutsidePointer, true);
+    document.removeEventListener('keydown', handleThemeEscape);
+  }
+}
+
+function handleThemeOutsidePointer(event) {
+  if (
+    dom.themeMenu.contains(event.target) ||
+    dom.themeButton.contains(event.target)
+  ) {
+    return;
+  }
+  setThemeMenuOpen(false);
+}
+
+function handleThemeEscape(event) {
+  if (event.key === 'Escape') {
+    setThemeMenuOpen(false);
+    dom.themeButton.focus();
+  }
 }
 
 /* ── Build & preview ────────────────────────────────────────────────────── */
@@ -973,6 +1062,19 @@ function bindEvents() {
     if (button) loadPreset(button.dataset.presetId);
   });
 
+  dom.themeButton.addEventListener('click', () => {
+    setThemeMenuOpen(dom.themeMenu.hidden);
+  });
+  dom.themeCloseButton.addEventListener('click', () => setThemeMenuOpen(false));
+  dom.themePresets.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-theme-color]');
+    if (button) applyThemeColor(button.dataset.themeColor);
+  });
+  dom.themeColorInput.addEventListener('input', () => {
+    applyThemeColor(dom.themeColorInput.value);
+  });
+  dom.resetThemeButton.addEventListener('click', resetTheme);
+
   dom.newButton.addEventListener('click', () => {
     pendingInvalid.clear();
     state = createDefaultState();
@@ -1089,6 +1191,7 @@ function exposeDebugApi() {
             }
           : null,
       getFilename: () => boardFileStem(state),
+      getTheme: () => currentThemeColor,
       isBusy: () => isBuilding || modelDirty,
       setView: (view) => requestView(view),
       rebuild: () => scheduleBuild({ fit: true, immediate: true }),

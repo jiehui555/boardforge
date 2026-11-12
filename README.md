@@ -36,7 +36,7 @@ npm run dev
 npm run build
 ```
 
-输出 `dist/index.html`，并打印原始体积和 gzip 体积。当前构建约为 **768 KB 原始 / 202 KB gzip**。
+输出 `dist/index.html`，并打印原始体积和 gzip 体积。当前构建约为 **780 KB 原始 / 206 KB gzip**。
 
 ### 生成示例文件
 
@@ -52,7 +52,7 @@ npm run samples
 npm test
 ```
 
-自动执行 78 项检查（35 项几何/schema 测试 + 43 项无头浏览器检查），包括实时重建、参数校验、CSG 回退路径、JSON 导入导出、二进制 STL 三角面/封闭流形检查、拖拽导入、本地自动保存和移动端布局。测试截图输出到 `screenshots/`。
+自动执行 91 项检查（40 项几何/schema/主题测试 + 51 项无头浏览器检查），包括实时重建、参数校验、CSG 回退路径、JSON 导入导出、二进制 STL 三角面/封闭流形检查、拖拽导入、主题色切换与持久化、本地自动保存和移动端布局。测试截图输出到 `screenshots/`。
 
 ## 已实现功能
 
@@ -71,12 +71,15 @@ npm test
 
 - 树莓派 4B、树莓派 Zero、ESP32 DevKit 三个预设；
 - 板子颜色自定义（默认深绿色 `#1a5f2a`）；
+- 界面主题色可设置：7 个预设色 + 任意自定义颜色，自动保存并跨刷新保留；
 - 安装孔越界提示与自动跳过；
 - 安装孔重叠提示；CSG 会实际合并重叠孔；
 - 模型三角面数、实体体积、生成耗时统计；
 - 文件名校验与自动命名（如 `board-85x56.stl`）；
 - 深色桌面优先界面和可用的移动端布局；
 - 独立单文件构建，可离线运行。
+
+![界面主题色设置](screenshots/theme-menu.png)
 
 ## 参数文件
 
@@ -88,6 +91,8 @@ npm test
 - **+X 向右**，**+Y 向前**（俯视时向上）；
 - Z 轴为板厚方向，模型在 Z 方向居中；
 - 所有长度单位为毫米。
+
+界面主题色保存在浏览器本地，不属于板子参数，因此不会写入 `.board.json`。板子本身的颜色仍由 `board.color` 控制。
 
 示例：
 
@@ -174,7 +179,8 @@ npm test
 │  ├─ board-geometry.js       圆角板、CSG 挖孔、水密性检查
 │  ├─ preview.js              Three.js 场景、灯光、OrbitControls、视角
 │  ├─ schema.js               参数规范化、校验、预设、文件名
-│  └─ stl-export.js           二进制 STL writer
+│  ├─ stl-export.js           二进制 STL writer
+│  └─ theme.js                界面主题色、颜色派生和本地持久化
 ├─ scripts/
 │  ├─ build.mjs               构建单文件版本
 │  ├─ serve.mjs               零依赖静态服务器

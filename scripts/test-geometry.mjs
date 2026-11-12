@@ -11,6 +11,11 @@ import {
 } from '../src/schema.js';
 import { buildBoardModel } from '../src/board-geometry.js';
 import { binaryStlTriangleCount, createBinaryStl } from '../src/stl-export.js';
+import {
+  DEFAULT_THEME_COLOR,
+  createThemeTokens,
+  normalizeThemeColor,
+} from '../src/theme.js';
 
 let checks = 0;
 function ok(condition, message) {
@@ -99,6 +104,15 @@ for (const preset of PRESETS) {
   ok(model.watertight, `${preset.label} preset builds a watertight model`);
   model.geometry.dispose();
 }
+
+// Interface theme tokens are readable against the dark UI.
+ok(normalizeThemeColor('#ABC') === '#aabbcc', 'short theme colours expand to six digits');
+ok(normalizeThemeColor('not-a-colour') === DEFAULT_THEME_COLOR, 'invalid theme colours fall back');
+const themeTokens = createThemeTokens('#7dd3fc');
+ok(themeTokens.accent === '#7dd3fc', 'readable theme colours are kept as-is');
+const darkThemeTokens = createThemeTokens('#101010');
+ok(darkThemeTokens.accent !== '#101010', 'dark theme colours are lifted for contrast');
+ok(darkThemeTokens.rgb.includes(','), 'theme tokens expose RGB channels for translucent accents');
 
 csgModel.geometry.dispose();
 directModel.geometry.dispose();

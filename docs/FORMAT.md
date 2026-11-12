@@ -2,6 +2,8 @@
 
 BoardForge 的参数文件是 UTF-8 纯文本 JSON。它包含完整可编辑状态，不包含模型三角面数据；3D 模型总是由参数重新生成。
 
+`.board.json` 只描述板子本身。界面主题色属于浏览器本地偏好，保存在 `localStorage` 的 `boardforge.theme.v1` 中，不会写入参数文件；板子颜色仍由 `board.color` 控制。
+
 ## 坐标约定
 
 - 原点：板子平面的中心；

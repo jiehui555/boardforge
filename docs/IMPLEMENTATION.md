@@ -4,7 +4,7 @@
 
 需求优先级为：轻量、纯前端、可打印、可再次编辑。实现中没有引入 React/Vue、状态管理、UI 组件库、后端或 CDN。运行时代码由原生 ES Module 组织，Three.js 负责预览与几何，`three-bvh-csg` 负责真实布尔挖孔。
 
-生产发行版由 esbuild 打包成单个 HTML。当前 `dist/index.html` 约 **768 KB 未压缩 / 202 KB gzip**（Three.js 与 CSG 内核占主要体积），低于 1 MB 的未压缩目标。单文件可直接通过 `file://` 打开，不需要服务器。
+生产发行版由 esbuild 打包成单个 HTML。当前 `dist/index.html` 约 **780 KB 未压缩 / 206 KB gzip**（Three.js 与 CSG 内核占主要体积），低于 1 MB 的未压缩目标。单文件可直接通过 `file://` 打开，不需要服务器。
 
 ## 2. 模块划分
 
@@ -15,6 +15,7 @@
 | `src/board-geometry.js` | 圆角矩形拉伸、CSG 减法、直接建模回退、水密/流形检查、体积 |
 | `src/preview.js` | Three.js 场景、Z-up 相机、OrbitControls、灯光/阴影、视角切换、资源释放 |
 | `src/stl-export.js` | 无依赖二进制 STL writer |
+| `src/theme.js` | 界面主题色预设、对比度增强、CSS 变量和本地持久化 |
 | `styles.css` | 完整界面样式与响应式布局 |
 | `scripts/build.mjs` | esbuild 构建 + CSS/JS 内联到单个 HTML |
 | `scripts/test-geometry.mjs` | schema、孔分析、CSG/回退和 STL writer 单元检查 |
@@ -74,19 +75,28 @@ STL 由手写 writer 生成，避免额外引入导出 addon：
 
 使用 `localStorage` 保存最近一次参数，刷新/重新打开后恢复。localStorage 不可用时静默降级，不影响其他功能。
 
+### 界面主题色
+
+- 顶栏“主题”菜单提供青柠绿、薄荷青、冰川蓝、电子蓝、星云紫、琥珀金、珊瑚橙 7 个预设，以及任意自定义颜色；
+- 选择结果转换为 `--accent`、`--accent-bright`、`--accent-rgb` 等 CSS 变量，统一控制品牌色、主按钮、聚焦状态、视角切换和场景光晕；
+- 深色自定义颜色会自动向白色混合到可读亮度，避免在深色界面中无法辨认；
+- 主题偏好单独保存在 `boardforge.theme.v1`，不会写入 `.board.json`，也不改变 `board.color` 板子颜色；
+- 菜单支持点击外部、关闭按钮和 Escape 关闭，并提供“恢复默认主题”。
+
 ## 4. 交互与界面
 
 - 桌面端：左侧参数/导出，右侧 3D 预览；
 - 移动端：预览在上，参数在下；导出栏贴底；
 - 3D 预览支持 OrbitControls 旋转、缩放、平移，双击回到立体视角；
 - 提供立体、顶视、前视、右视四个视角；
+- 顶栏主题菜单可设置界面强调色，板子颜色仍由参数面板单独控制；
 - 参数更新时状态条显示水密性、越界孔或重叠孔；
 - 统计信息显示外形、三角面数、实体体积和生成耗时；
 - 所有关键状态通过文字提示，而不是只依赖颜色。
 
 ## 5. 验收结果
 
-`npm test` 自动执行 78 项检查（35 项 schema/几何检查 + 43 项浏览器端检查），当前全部通过。覆盖：
+`npm test` 自动执行 91 项检查（40 项 schema/几何/主题检查 + 51 项浏览器端检查），当前全部通过。覆盖：
 
 - 默认模型使用 CSG 路径且水密；
 - 修改尺寸后实时重建，包围盒正确；
@@ -99,6 +109,8 @@ STL 由手写 writer 生成，避免额外引入导出 addon：
 - 越界孔跳过且模型仍可打印；
 - 预设载入；
 - 视角切换；
+- 主题色预设、CSS 变量应用、与板子颜色隔离、刷新后保持；
+- 深色主题色自动提升对比度；
 - localStorage 刷新恢复；
 - 移动端无横向溢出。
 
@@ -107,6 +119,8 @@ STL 由手写 writer 生成，避免额外引入导出 addon：
 - `screenshots/app-default.png`
 - `screenshots/app-top-view.png`
 - `screenshots/app-mobile.png`
+- `screenshots/theme-menu.png`
+- `screenshots/theme-menu-mobile.png`
 
 ## 6. 范围外
 
