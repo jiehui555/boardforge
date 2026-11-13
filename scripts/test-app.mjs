@@ -135,35 +135,6 @@ async function dismissLauncher(targetPage = page) {
   }
 }
 
-function parseBinaryStl(buffer) {
-  assert.ok(buffer.length >= 84, 'STL must have a header and triangle count');
-  const triangles = buffer.readUInt32LE(80);
-  assert.equal(buffer.length, 84 + triangles * 50, 'binary STL byte length must be exact');
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-  let minX = Infinity;
-  let maxX = -Infinity;
-  for (let index = 0; index < triangles; index += 1) {
-    const offset = 84 + index * 50;
-    const values = [];
-    for (let vertex = 0; vertex < 3; vertex += 1) {
-      const vertexOffset = offset + 12 + vertex * 12;
-      values.push([
-        buffer.readFloatLE(vertexOffset),
-        buffer.readFloatLE(vertexOffset + 4),
-        buffer.readFloatLE(vertexOffset + 8),
-      ]);
-    }
-    for (const [x, y, z] of values) {
-      minX = Math.min(minX, x);
-      maxX = Math.max(maxX, x);
-      minZ = Math.min(minZ, z);
-      maxZ = Math.max(maxZ, z);
-    }
-  }
-  return { triangles, minX, maxX, minZ, maxZ };
-}
-
 try {
   await page.goto(appUrl, { waitUntil: 'load' });
   await waitReady();
@@ -671,7 +642,7 @@ try {
   ok(exportedJson.openings.length === 2, 'JSON contains side-panel openings');
   ok(exportedJson.board.length === 85, 'JSON contains board reference');
 
-  // Export SVG, DXF and assembly STL.
+  // Export SVG and DXF.
   const svgPath = join(work, 'case-cut.svg');
   const svgDownload = await download('#exportSvgButton', svgPath);
   ok(svgDownload.suggestedFilename().endsWith('-cut.svg'), 'SVG filename is generated');
@@ -691,18 +662,6 @@ try {
   ok((dxf.match(/POLYLINE/g) || []).length >= 6, 'DXF contains six panel outlines');
   ok(dxf.includes('TEXT\n8\nANNOTATION'), 'DXF includes non-cutting text annotations');
   ok(dxf.includes('1\nSHEET') && dxf.includes('1\nTOP'), 'DXF annotations include sheet info and panel labels');
-
-  const stlPath = join(work, 'case-assembly.stl');
-  const stlDownload = await download('#exportStlButton', stlPath);
-  ok(stlDownload.suggestedFilename().endsWith('-assembly.stl'), 'STL filename is generated');
-  const stlBuffer = await readFile(stlPath);
-  const stl = parseBinaryStl(stlBuffer);
-  const exportDiagnostics = await diagnostics();
-  ok(stl.triangles > exportDiagnostics.triangleCount, 'assembly STL includes panels and hardware');
-  ok(
-    stl.maxZ > exportDiagnostics.outer.height,
-    'assembly STL includes the upper hardware envelope',
-  );
 
   // Import the exported case document.
   const imported = structuredClone(exportedJson);

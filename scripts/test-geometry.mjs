@@ -13,17 +13,13 @@ import {
   screwSpecForClearance,
   toCaseDocument,
 } from '../src/case-schema.js';
-import {
-  buildAssemblyGeometry,
-  buildCaseModel,
-} from '../src/case-geometry.js';
+import { buildCaseModel } from '../src/case-geometry.js';
 import {
   buildCutDxf,
   buildCutSvg,
   cutSheetBounds,
 } from '../src/vector-export.js';
 import { inspectGeometry } from '../src/board-geometry.js';
-import { binaryStlTriangleCount, createBinaryStl } from '../src/stl-export.js';
 import {
   DEFAULT_THEME_COLOR,
   createThemeTokens,
@@ -411,17 +407,6 @@ ok(
 ok(svg.includes('viewBox='), 'SVG has a millimetre viewBox');
 ok(svg.includes('width="'), 'SVG has physical dimensions');
 ok(svg.includes('<g id="top"'), 'SVG includes a named top-panel group');
-
-// Combined STL preview.
-const assembly = buildAssemblyGeometry(openingModel);
-const stl = createBinaryStl(assembly, { name: 'case assembly' });
-ok(
-  stl.byteLength === 84 + binaryStlTriangleCount(assembly) * 50,
-  'assembly STL has an exact binary length',
-);
-ok(assembly.attributes.position.count > 0, 'assembly STL contains triangles');
-ok(assembly.boundingBox.max.z > dimensions.outerHeight, 'assembly STL includes top hardware');
-assembly.dispose();
 
 // Interface theme tokens.
 ok(normalizeThemeColor('#ABC') === '#aabbcc', 'short theme colours expand');

@@ -383,7 +383,7 @@
                 <div class="info-body">
                   <p>六块亚克力板通过榫舌/榫槽互锁。开发板安装孔位上下各有一段固定柱，把顶板、开发板和底板串成同一组固定结构。</p>
                   <p>开孔坐标以侧板中心为原点，U 为水平方向，V 为垂直方向。定位时建议使用正交投影和对应侧视，避免透视变形。侧板开孔超出可加工区域时会自动跳过并提示。</p>
-                  <p>DXF/SVG 为毫米单位激光切割路径，未包含激光补偿；STL 是装配预览，不是单块可打印实体。</p>
+                  <p>DXF/SVG 为毫米单位激光切割路径，未包含激光补偿。</p>
                   <p>板子颜色只影响 3D 参考模型，不进入切割文件。</p>
                 </div>
               </details>
@@ -397,7 +397,7 @@
               <button class="preview-sheet-button" id="previewCutButton" type="button" title="预览六块面板的切割排版">排版预览</button>
               <span class="export-status" id="exportStatus">准备就绪</span>
             </div>
-            <div class="export-actions export-actions-4">
+            <div class="export-actions export-actions-3">
               <button class="btn btn-secondary" id="exportJsonButton" type="button" title="导出可再次编辑的外壳参数文件">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0 3.5-3.5M10 13 6.5 9.5M4 15.5h12" /></svg>
                 <span>参数</span>
@@ -409,10 +409,6 @@
               <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，含 CUT 切割层与 ANNOTATION 标注层">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h9l5 5v9H3zM12 3v5h5" /><path d="m6.5 15 3-4 2 2 2-3" /></svg>
                 <span>切割 DXF</span>
-              </button>
-              <button class="btn btn-secondary" id="exportStlButton" type="button" title="导出 3D 装配预览 STL">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m10 2.5 7 4v7l-7 4-7-4v-7l7-4Z" /><path d="m3 6.5 7 4 7-4M10 10.5v7" /></svg>
-                <span>STL 装配</span>
               </button>
             </div>
           </footer>

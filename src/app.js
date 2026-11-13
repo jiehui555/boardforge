@@ -29,14 +29,9 @@ import {
   sidePanelWidth,
   toCaseDocument,
 } from './case-schema.js';
-import {
-  buildAssemblyGeometry,
-  buildCaseModel,
-  disposeCaseModel,
-} from './case-geometry.js';
+import { buildCaseModel, disposeCaseModel } from './case-geometry.js';
 import { buildBoardModel } from './board-geometry.js';
 import { BoardPreview } from './preview.js';
-import { createBinaryStl } from './stl-export.js';
 import { buildCutDxf, buildCutSvg, cutSheetBounds } from './vector-export.js';
 import {
   DEFAULT_THEME_COLOR,
@@ -163,7 +158,6 @@ const dom = {
   exportJsonButton: document.querySelector('#exportJsonButton'),
   exportSvgButton: document.querySelector('#exportSvgButton'),
   exportDxfButton: document.querySelector('#exportDxfButton'),
-  exportStlButton: document.querySelector('#exportStlButton'),
   sheetModal: document.querySelector('#sheetModal'),
   sheetCloseButton: document.querySelector('#sheetCloseButton'),
   sheetSize: document.querySelector('#sheetSize'),
@@ -2120,7 +2114,7 @@ function updateModelUi(result) {
     setExportStatus(`可导出 · ${result.warnings.length} 条提醒`, 'warning');
   } else {
     setModelStatus('good', '6 面板 · 榫卯互锁');
-    setExportStatus('可导出 DXF / SVG / STL');
+    setExportStatus('可导出 DXF / SVG');
   }
 
   renderSceneNotices(result);
@@ -2182,7 +2176,7 @@ function setExportStatusFromModel() {
   if (model.warnings.length > 0) {
     setExportStatus(`可导出 · ${model.warnings.length} 条提醒`, 'warning');
   } else {
-    setExportStatus('可导出 DXF / SVG / STL');
+    setExportStatus('可导出 DXF / SVG');
   }
 }
 
@@ -2193,7 +2187,6 @@ function updateActionButtons() {
     blocked || !model || modelDirty || isBuilding || previewFailed;
   dom.exportSvgButton.disabled = unavailable;
   dom.exportDxfButton.disabled = unavailable;
-  dom.exportStlButton.disabled = unavailable;
   dom.previewCutButton.disabled = unavailable;
 }
 
@@ -2365,24 +2358,6 @@ function exportCutDxf() {
     toast('DXF 切割文件已导出', `${model.panelCount} 块面板 · CUT 图层 · 单位 mm`);
   } catch (error) {
     toast('DXF 导出失败', error?.message || String(error), 'error');
-  }
-}
-
-function exportAssemblyStl() {
-  if (!ensureModelReady()) return;
-  try {
-    const geometry = buildAssemblyGeometry(model);
-    const buffer = createBinaryStl(geometry, { name: `${state.name} assembly` });
-    geometry.dispose();
-    const filename = `${caseFileStem(state)}-assembly.stl`;
-    downloadBlob(new Blob([buffer], { type: 'model/stl' }), filename);
-    toast(
-      'STL 装配预览已导出',
-      `${model.panelCount} 面板 + 五金 · 仅用于预览，不是可打印单体`,
-      'warning',
-    );
-  } catch (error) {
-    toast('STL 导出失败', error?.message || String(error), 'error');
   }
 }
 
@@ -2771,7 +2746,6 @@ function bindEvents() {
   dom.exportJsonButton.addEventListener('click', exportCaseJson);
   dom.exportSvgButton.addEventListener('click', exportCutSvg);
   dom.exportDxfButton.addEventListener('click', exportCutDxf);
-  dom.exportStlButton.addEventListener('click', exportAssemblyStl);
   dom.projectCancelButton.addEventListener('click', () => closeProjectDialog());
   dom.projectCloseButton.addEventListener('click', () => closeProjectDialog());
   dom.projectDirectButton.addEventListener('click', confirmProjectDirect);
@@ -2894,8 +2868,7 @@ function bindShortcuts() {
     if (!modifier) return;
     if (event.key.toLowerCase() === 's') {
       event.preventDefault();
-      if (event.shiftKey) exportAssemblyStl();
-      else exportCaseJson();
+      exportCaseJson();
     } else if (event.key.toLowerCase() === 'o') {
       event.preventDefault();
       dom.fileInput.click();

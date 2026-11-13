@@ -1,6 +1,6 @@
 # BoardForge 外壳参数文件格式（`.case.json`）
 
-BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三角面数据，3D 模型、DXF/SVG 切割路径和装配 STL 都由参数实时重新生成。
+BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三角面数据，3D 模型和 DXF/SVG 切割路径都由参数实时重新生成。
 
 ## 坐标约定
 
@@ -177,7 +177,6 @@ outerHeight = innerHeight + 2 × panel_thickness
 - 参数：`board-case-<外壳宽>x<外壳深>x<外壳高>.case.json`
 - DXF：`...-cut.dxf`
 - SVG：`...-cut.svg`
-- STL：`...-assembly.stl`
 
 如果设置了外壳名称，则使用名称代替 `board-case`。
 
@@ -187,4 +186,3 @@ outerHeight = innerHeight + 2 × panel_thickness
 - 多项目库也属于浏览器本地数据：项目列表在 `boardforge.projects.v1`，当前活动项目在 `boardforge.active-project.v1`；`.case.json` 才是可移植、可备份的项目文件。
 - DXF/SVG 使用毫米单位，未包含激光 kerf 补偿。
 - DXF 为 ASCII R12：`CUT` 图层是闭合切割路径，`ANNOTATION` 图层是标题、幅面和零件尺寸标注；导出后可在激光软件中关闭标注层。
-- STL 是装配预览，不是单一的可打印外壳实体。

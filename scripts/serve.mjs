@@ -18,7 +18,6 @@ const MIME_TYPES = {
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.webp': 'image/webp',
-  '.stl': 'model/stl',
   '.map': 'application/json; charset=utf-8',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',

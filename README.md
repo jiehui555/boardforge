@@ -6,7 +6,6 @@
 
 - **DXF**：六块面板的激光切割文件，单位毫米；
 - **SVG**：同样的切割路径预览；
-- **STL**：带螺丝和角柱的 3D 装配预览；
 - **`.case.json`**：可再次导入继续编辑的外壳参数文件。
 
 纯前端实现，没有后端，不上传任何参数或模型。
@@ -48,7 +47,7 @@ npm run build
 npm run samples
 ```
 
-生成 `samples/` 中的 `.case.json`、`.dxf`、`.svg` 和装配 `.stl`。
+生成 `samples/` 中的 `.case.json`、`.dxf` 和 `.svg`。
 
 ### 自动化验收
 
@@ -56,12 +55,12 @@ npm run samples
 npm test
 ```
 
-运行 271 项检查：
+运行 265 项检查：
 
-- 102 项 schema / 几何 / 导出单元检查；
-- 169 项无头浏览器端到端检查。
+- 99 项 schema / 几何 / 导出单元检查；
+- 166 项无头浏览器端到端检查。
 
-测试覆盖六面板生成、一体固定柱、2D 开孔编辑与拖动、接口预设、制造冲突检查、五金 BOM、切割排版预览、侧边栏互斥折叠、参数联动、JSON 导入、DXF/SVG 导出、STL 装配、几何缓存、深浅色模式和移动端布局。
+测试覆盖六面板生成、一体固定柱、2D 开孔编辑与拖动、接口预设、制造冲突检查、五金 BOM、切割排版预览、侧边栏互斥折叠、参数联动、JSON 导入、DXF/SVG 导出、几何缓存、深浅色模式和移动端布局。
 
 ## 外壳结构
 
@@ -149,10 +148,6 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 
 与 DXF 相同的面板切割路径，适合预览、排版检查或交付给支持 SVG 的切割服务。
 
-### STL
-
-导出的 STL 是**装配预览**，包含六块面板、上下两段一体固定柱、顶/底螺丝头和螺杆。它不是单一可打印实体，也不包含开发板参考模型。
-
 ### 参数文件
 
 `.case.json` 是 UTF-8 JSON，包含开发板、外壳、开孔、通风和元数据。格式规范见 [docs/FORMAT.md](docs/FORMAT.md)。
@@ -176,7 +171,7 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 - 固定柱和面板螺丝按 M2 / M2.5 / M3 / M4 标准公制规格选择，过孔自动匹配；
 - 3D 预览中固定柱为六角柱，8 颗面板螺丝为圆角平头造型，带六角槽和穿过面板的螺纹螺杆；
 - 开孔重叠、板孔过近等制造冲突检查；
-- DXF / SVG / STL / JSON 四种导出；
+- DXF / SVG / JSON 三种导出；
 - 启动项目库：可从预设新建、打开自己的项目、保存当前项目和删除项目；
 - 支持在本机保存多个项目，切换项目时对未保存修改给出保护提示；
 - 切换开发板预设或新建前，若当前项目已自定义，会提示先导出参数；
@@ -219,12 +214,11 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 │  ├─ vector-export.js        DXF/SVG 切割文件生成
 │  ├─ board-geometry.js       开发板参考模型与 CSG 挖孔
 │  ├─ schema.js               开发板参数与预设
-│  ├─ stl-export.js           二进制 STL writer
 │  └─ theme.js                深浅色、界面主题色和本地持久化
 ├─ scripts/
 │  ├─ build.mjs               构建单文件版本
 │  ├─ serve.mjs               零依赖静态服务器
-│  ├─ generate-samples.mjs    生成示例 JSON/DXF/SVG/STL
+│  ├─ generate-samples.mjs    生成示例 JSON/DXF/SVG
 │  ├─ test-geometry.mjs       schema/几何/导出单元测试
 │  └─ test-app.mjs            浏览器端验收测试
 ├─ samples/                   示例外壳参数和切割文件
@@ -237,7 +231,7 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 
 ## 构建与性能
 
-- `dist/index.html` 约 **913 KB 原始 / 237 KB gzip**；
+- `dist/index.html` 约 **913 KB 原始 / 236 KB gzip**；
 - 开发板参考几何按板尺寸/孔位缓存，只修改外壳参数时不会重复执行 CSG；
 - 默认 85 × 56 mm 外壳构建约 70–110 ms；
 - 生产构建使用 esbuild tree-shake 和压缩；
@@ -248,11 +242,9 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 - `samples/raspberry-pi-4b-case.case.json`
 - `samples/raspberry-pi-4b-case-cut.dxf`
 - `samples/raspberry-pi-4b-case-cut.svg`
-- `samples/raspberry-pi-4b-case-assembly.stl`
 - `samples/sensor-node-case.case.json`
 - `samples/sensor-node-case-cut.dxf`
 - `samples/sensor-node-case-cut.svg`
-- `samples/sensor-node-case-assembly.stl`
 
 树莓派示例按实际 2.7 mm 板孔使用 2.9 mm 固定柱过孔；Sensor Node 示例使用 3.2 mm 板孔和 3.4 mm 过孔，分别对应 M2.5 / M3 五金。
 
@@ -265,7 +257,6 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 - 亚克力榫卯公差受板材实际厚度、激光 kerf 和装配方式影响；DXF/SVG 仍是名义路径，kerf 由激光软件或测试后的 `fit` 参数补偿；
 - 切割排版会显示总幅面，但暂不根据具体激光机幅面自动旋转/重新排样；
 - 3D 预览中的透明材质和硬件是视觉近似；
-- STL 是装配预览，不是单件可打印模型；
 - 不包含带尺寸标注的工程图、五金采购链接或 3MF 导出；BOM 目前是复制文本，不是供应商订单。
 
 ## License

@@ -2009,8 +2009,8 @@ html[data-mode="light"] .input-shell select {
   gap: 8px;
 }
 
-.export-actions-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+.export-actions-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .export-actions .btn {
@@ -2018,13 +2018,13 @@ html[data-mode="light"] .input-shell select {
   font-size: 12px;
 }
 
-.export-actions-4 .btn {
+.export-actions-3 .btn {
   gap: 5px;
   padding: 0 7px;
   font-size: 10.5px;
 }
 
-.export-actions-4 .btn svg {
+.export-actions-3 .btn svg {
   width: 14px;
   height: 14px;
 }
@@ -4044,18 +4044,18 @@ html[data-mode="light"] .toast-icon {
     min-height: 42px;
   }
 
-  .export-actions-4 {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+  .export-actions-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
   }
 
-  .export-actions-4 .btn {
+  .export-actions-3 .btn {
     gap: 0;
     padding: 0 4px;
     font-size: 10px;
   }
 
-  .export-actions-4 .btn svg {
+  .export-actions-3 .btn svg {
     display: none;
   }
 }

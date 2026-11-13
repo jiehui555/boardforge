@@ -7,17 +7,13 @@ import {
   createOpening,
   toCaseDocument,
 } from '../src/case-schema.js';
-import {
-  buildAssemblyGeometry,
-  buildCaseModel,
-} from '../src/case-geometry.js';
+import { buildCaseModel } from '../src/case-geometry.js';
 import { buildCutDxf, buildCutSvg } from '../src/vector-export.js';
-import { createBinaryStl } from '../src/stl-export.js';
 
 const outputDirectory = resolve(process.cwd(), 'samples');
 await mkdir(outputDirectory, { recursive: true });
 for (const file of await readdir(outputDirectory)) {
-  if (/\.(board\.json|case\.json|stl|dxf|svg)$/i.test(file)) {
+  if (/\.(board\.json|case\.json|dxf|svg)$/i.test(file)) {
     await rm(resolve(outputDirectory, file));
   }
 }
@@ -123,20 +119,15 @@ for (const sample of samples) {
   }
   const dxf = buildCutDxf(model);
   const svg = buildCutSvg(model);
-  const assembly = buildAssemblyGeometry(model);
-  const stl = createBinaryStl(assembly, { name: documentData.name });
 
   await writeFile(resolve(outputDirectory, `${sample.slug}-cut.dxf`), dxf, 'utf8');
   await writeFile(resolve(outputDirectory, `${sample.slug}-cut.svg`), svg, 'utf8');
-  await writeFile(resolve(outputDirectory, `${sample.slug}-assembly.stl`), Buffer.from(stl));
 
   console.log(
     `${sample.slug}: ${model.panelCount} panels, ${model.triangleCount} panel triangles, ` +
-      `${(stl.byteLength / 1024).toFixed(1)} KB assembly STL, ` +
       `${(dxf.length / 1024).toFixed(1)} KB DXF`,
   );
 
-  assembly.dispose();
   for (const panel of model.panels) panel.geometry.dispose();
   model.board.geometry.dispose();
 }
