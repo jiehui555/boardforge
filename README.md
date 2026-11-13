@@ -234,7 +234,7 @@ DXF 不包含激光补偿；请在激光软件中按材料测试结果设置 ker
 
 ## 构建与性能
 
-- `dist/index.html` 约 **918 KB 原始 / 236 KB gzip**；
+- `dist/index.html` 约 **916 KB 原始 / 236 KB gzip**；
 - 开发板参考几何按板尺寸/孔位缓存，只修改外壳参数时不会重复执行 CSG；
 - 默认 85 × 56 mm 外壳构建约 70–110 ms；
 - 生产构建使用 esbuild tree-shake 和压缩；

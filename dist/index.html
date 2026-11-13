@@ -902,8 +902,7 @@ html[data-mode="light"] .input-shell select {
   letter-spacing: 0.04em;
 }
 
-.color-control svg,
-.info-details svg {
+.color-control svg {
   width: 14px;
   height: 14px;
   fill: none;
@@ -1768,65 +1767,6 @@ html[data-mode="light"] .input-shell select {
 .bom-copy:hover {
   border-color: var(--line-strong);
   color: var(--text-soft);
-}
-
-.info-section {
-  padding-top: 4px;
-  padding-bottom: 9px;
-  border-bottom: 0;
-}
-
-.info-details {
-  border-top: 1px solid var(--line);
-}
-
-.info-details summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 2px 13px;
-  color: var(--muted);
-  font-size: 11px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.info-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.info-details summary:hover {
-  color: var(--text-soft);
-}
-
-.info-details[open] summary svg {
-  transform: rotate(180deg);
-}
-
-.info-details summary svg {
-  transition: transform 0.18s ease;
-}
-
-.info-body {
-  padding: 0 2px 12px;
-  color: var(--dim);
-  font-size: 10.5px;
-  line-height: 1.65;
-}
-
-.info-body p {
-  margin: 0 0 8px;
-}
-
-.info-body p:last-child {
-  margin-bottom: 0;
-}
-
-.info-body code {
-  color: var(--text-soft);
-  font-family: var(--mono);
-  font-size: 9.5px;
 }
 
 /* ── Export bar ─────────────────────────────────────────────────────────── */
@@ -4209,9 +4149,9 @@ html[data-mode="light"] .toast-icon {
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8H3z" /></svg>
             <span>项目</span>
           </button>
-          <button class="btn btn-quiet" id="importButton" type="button" aria-label="导入参数文件">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3-3m-3 3-3-3M4 12.5v3A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
-            <span>导入参数</span>
+          <button class="btn btn-quiet" id="importButton" type="button" title="导入参数文件" aria-label="导入参数文件">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 12.5v-9m0 0-3 3m3-3 3 3M4 12.5v3A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
+            <span>导入</span>
           </button>
         </div>
       </header>
@@ -4477,21 +4417,6 @@ html[data-mode="light"] .toast-icon {
                 </button>
               </div>
             </details>
-
-            <section class="panel-section info-section">
-              <details class="info-details">
-                <summary>
-                  <span>外壳结构与导出说明</span>
-                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
-                </summary>
-                <div class="info-body">
-                  <p>六块亚克力板通过榫舌/榫槽互锁。开发板安装孔位上下各有一段固定柱，把顶板、开发板和底板串成同一组固定结构。</p>
-                  <p>开孔坐标以侧板中心为原点，U 为水平方向，V 为垂直方向。定位时建议使用正交投影和对应侧视，避免透视变形。侧板开孔超出可加工区域时会自动跳过并提示。</p>
-                  <p>DXF/SVG 为毫米单位激光切割路径，未包含激光补偿。</p>
-                  <p>板子颜色只影响 3D 参考模型，不进入切割文件。</p>
-                </div>
-              </details>
-            </section>
           </div>
 
           <footer class="export-bar">
@@ -4512,7 +4437,7 @@ html[data-mode="light"] .toast-icon {
               </button>
               <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，含 CUT 切割层与 ANNOTATION 标注层">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h9l5 5v9H3zM12 3v5h5" /><path d="m6.5 15 3-4 2 2 2-3" /></svg>
-                <span>切割 DXF</span>
+                <span>DXF</span>
               </button>
             </div>
           </footer>

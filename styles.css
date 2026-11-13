@@ -879,8 +879,7 @@ html[data-mode="light"] .input-shell select {
   letter-spacing: 0.04em;
 }
 
-.color-control svg,
-.info-details svg {
+.color-control svg {
   width: 14px;
   height: 14px;
   fill: none;
@@ -1745,65 +1744,6 @@ html[data-mode="light"] .input-shell select {
 .bom-copy:hover {
   border-color: var(--line-strong);
   color: var(--text-soft);
-}
-
-.info-section {
-  padding-top: 4px;
-  padding-bottom: 9px;
-  border-bottom: 0;
-}
-
-.info-details {
-  border-top: 1px solid var(--line);
-}
-
-.info-details summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 15px 2px 13px;
-  color: var(--muted);
-  font-size: 11px;
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.info-details summary::-webkit-details-marker {
-  display: none;
-}
-
-.info-details summary:hover {
-  color: var(--text-soft);
-}
-
-.info-details[open] summary svg {
-  transform: rotate(180deg);
-}
-
-.info-details summary svg {
-  transition: transform 0.18s ease;
-}
-
-.info-body {
-  padding: 0 2px 12px;
-  color: var(--dim);
-  font-size: 10.5px;
-  line-height: 1.65;
-}
-
-.info-body p {
-  margin: 0 0 8px;
-}
-
-.info-body p:last-child {
-  margin-bottom: 0;
-}
-
-.info-body code {
-  color: var(--text-soft);
-  font-family: var(--mono);
-  font-size: 9.5px;
 }
 
 /* ── Export bar ─────────────────────────────────────────────────────────── */
