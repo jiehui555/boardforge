@@ -122,6 +122,19 @@ async function download(selector, destination) {
   return downloadEvent;
 }
 
+async function waitForLauncher(targetPage = page) {
+  await targetPage.waitForSelector('#projectLauncher:not([hidden])', {
+    timeout: 5_000,
+  });
+}
+
+async function dismissLauncher(targetPage = page) {
+  if (await targetPage.locator('#projectLauncher').isVisible()) {
+    await targetPage.locator('#launcherContinueButton').click();
+    await targetPage.waitForTimeout(150);
+  }
+}
+
 function parseBinaryStl(buffer) {
   assert.ok(buffer.length >= 84, 'STL must have a header and triangle count');
   const triangles = buffer.readUInt32LE(80);
@@ -154,6 +167,9 @@ function parseBinaryStl(buffer) {
 try {
   await page.goto(appUrl, { waitUntil: 'load' });
   await waitReady();
+  await waitForLauncher();
+  ok(await page.locator('#projectLauncher').isVisible(), 'project launcher opens at startup');
+  await dismissLauncher();
 
   const initial = { state: await state(), diagnostics: await diagnostics() };
   ok(initial.state.version === 2, 'default document is case format version 2');
@@ -386,7 +402,8 @@ try {
   await page.locator('#caseName').fill('客户定制外壳');
   await page.locator('#caseName').blur();
   await page.waitForTimeout(350);
-  await page.locator('#newButton').click();
+  await page.locator('#projectsButton').click();
+  await page.locator('#launcherNewButton').click();
   ok(await page.locator('#projectModal').isVisible(), 'custom project prompts before creating a new project');
   ok(
     (await page.locator('#projectDialogTitle').textContent()).includes('新建'),
@@ -394,6 +411,7 @@ try {
   );
   await page.locator('#projectCancelButton').click();
   ok((await state()).name === '客户定制外壳', 'cancelling a new project keeps the current project');
+  await dismissLauncher();
 
   await page.locator('[data-preset-id="esp32-devkit"]').click();
   ok(await page.locator('#projectModal').isVisible(), 'custom project prompts before preset replacement');
@@ -702,6 +720,71 @@ try {
   ok(importedState.enclosure.clearance === 9, 'file import restores enclosure settings');
   ok(importedState.openings.length === 1 && importedState.openings[0].side === 'back', 'file import restores openings');
 
+  // Multi-project library: save, open, and delete projects.
+  const readProjectLibrary = () =>
+    page.evaluate(() => {
+      try {
+        return JSON.parse(localStorage.getItem('boardforge.projects.v1')).projects;
+      } catch {
+        return [];
+      }
+    });
+
+  await page.locator('#caseName').fill('项目 A');
+  await page.locator('#caseName').blur();
+  await page.waitForTimeout(350);
+  await page.locator('#saveProjectButton').click();
+  await page.waitForTimeout(250);
+  let projects = await readProjectLibrary();
+  ok(projects.length === 1 && projects[0].name === '项目 A', 'current project can be saved to the project library');
+  const projectA = projects.find((project) => project.name === '项目 A');
+
+  await page.locator('#projectsButton').click();
+  await waitForLauncher();
+  ok((await page.locator('.project-entry').count()) === 1, 'project launcher lists saved projects');
+  await page.locator('#launcherNewButton').click();
+  await waitIdle();
+  ok((await state()).name === '未命名开发板外壳', 'launcher can create a blank project');
+  await page.locator('#caseName').fill('项目 B');
+  await page.locator('#caseName').blur();
+  await page.waitForTimeout(350);
+
+  await page.locator('#projectsButton').click();
+  await waitForLauncher();
+  await page.locator(`[data-open-project="${projectA.id}"]`).click();
+  ok(await page.locator('#projectModal').isVisible(), 'unsaved project prompts before opening another project');
+  await page.locator('#projectCancelButton').click();
+  await dismissLauncher();
+
+  await page.locator('#saveProjectButton').click();
+  await page.waitForTimeout(250);
+  projects = await readProjectLibrary();
+  ok(projects.length === 2, 'project library stores multiple projects');
+
+  await page.locator('#projectsButton').click();
+  await waitForLauncher();
+  ok((await page.locator('.project-entry').count()) === 2, 'launcher shows both saved projects');
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
+  await page.screenshot({ path: join(screenshots, 'case-project-launcher.png') });
+  const projectB = projects.find((project) => project.name === '项目 B');
+  await page.locator(`[data-open-project="${projectA.id}"]`).click();
+  await waitIdle();
+  ok((await state()).name === '项目 A', 'opening a saved project restores its state');
+  ok(await page.locator('#projectLauncher').isHidden(), 'opening a project closes the launcher');
+
+  await page.locator('#projectsButton').click();
+  await waitForLauncher();
+  await page.locator(`[data-delete-project="${projectB.id}"]`).click();
+  ok(
+    await page.locator(`[data-confirm-delete="${projectB.id}"]`).isVisible(),
+    'deleting a project asks for confirmation',
+  );
+  await page.locator(`[data-confirm-delete="${projectB.id}"]`).click();
+  await page.waitForTimeout(120);
+  ok((await page.locator('.project-entry').count()) === 1, 'saved project can be deleted');
+  await dismissLauncher();
+  ok((await readProjectLibrary()).length === 1, 'deleted project is removed from local storage');
+
   // Drag-and-drop legacy board JSON still imports.
   const legacy = {
     version: 1,
@@ -738,6 +821,8 @@ try {
   await page.waitForTimeout(150);
   await page.reload({ waitUntil: 'load' });
   await waitReady();
+  await waitForLauncher();
+  await dismissLauncher();
   const restored = await page.evaluate(() => ({
     state: window.boardForge.getState(),
     mode: window.boardForge.getMode(),
@@ -760,6 +845,15 @@ try {
   });
   await mobile.goto(appUrl, { waitUntil: 'load' });
   await mobile.waitForFunction(() => window.boardForge?.getDiagnostics(), { timeout: 30_000 });
+  await waitForLauncher(mobile);
+  ok(await mobile.locator('#projectLauncher').isVisible(), 'mobile startup launcher opens');
+  ok(
+    await mobile.evaluate(
+      () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    ),
+    'project launcher fits the mobile viewport',
+  );
+  await dismissLauncher(mobile);
   const mobileInitial = await mobile.evaluate(() => ({
     noOverflow:
       document.documentElement.scrollWidth <= document.documentElement.clientWidth,

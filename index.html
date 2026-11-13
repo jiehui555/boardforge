@@ -97,9 +97,13 @@
               <button class="theme-reset" id="resetThemeButton" type="button">恢复默认主题</button>
             </div>
           </div>
-          <button class="btn btn-quiet" id="newButton" type="button" title="恢复默认外壳">
-            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6.5A6.5 6.5 0 1 1 3.5 10M4 2.5v4h4" /></svg>
-            <span>新建</span>
+          <button class="btn btn-quiet" id="saveProjectButton" type="button" title="保存当前项目到本机项目库">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h9l3 3v10H4zM7 3.5v4h6v-4M7 12h6" /></svg>
+            <span>保存</span>
+          </button>
+          <button class="btn btn-quiet" id="projectsButton" type="button" title="打开项目库" aria-haspopup="dialog">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8H3z" /></svg>
+            <span>项目</span>
           </button>
           <button class="btn btn-quiet" id="importButton" type="button" aria-label="导入参数文件">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3-3m-3 3-3-3M4 12.5v3A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
@@ -114,7 +118,7 @@
             <section class="panel-section project-section">
               <div class="section-kicker">
                 <span class="eyebrow">项目</span>
-                <span class="autosave-label" id="autosaveLabel">本地自动保存</span>
+                <span class="autosave-label" id="autosaveLabel">草稿自动保存</span>
               </div>
               <label class="name-field">
                 <span class="sr-only">外壳名称</span>
@@ -519,6 +523,56 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="launcher-modal" id="projectLauncher" hidden aria-hidden="true">
+      <div class="launcher-dialog" role="dialog" aria-modal="true" aria-labelledby="launcherTitle">
+        <div class="launcher-head">
+          <div>
+            <span class="eyebrow">项目</span>
+            <h2 id="launcherTitle">打开或新建项目</h2>
+          </div>
+          <button class="launcher-close" id="launcherCloseButton" type="button" aria-label="关闭项目库">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+          </button>
+        </div>
+        <div class="launcher-body">
+          <div class="launcher-current">
+            <div class="launcher-current-copy">
+              <span class="eyebrow">当前编辑</span>
+              <strong id="launcherCurrentName">未命名开发板外壳</strong>
+              <span id="launcherCurrentMeta">85 × 56 × 1.6 mm</span>
+            </div>
+            <button class="btn btn-secondary" id="launcherSaveButton" type="button">保存当前项目</button>
+          </div>
+
+          <div class="launcher-grid">
+            <section class="launcher-pane">
+              <div class="launcher-pane-head">
+                <span class="eyebrow">从模板新建</span>
+                <span class="launcher-hint">会替换当前编辑</span>
+              </div>
+              <div class="launcher-presets" id="launcherPresets"></div>
+              <button class="launcher-blank" id="launcherNewButton" type="button">
+                <span class="plus">+</span>
+                <span>新建空白项目</span>
+              </button>
+            </section>
+
+            <section class="launcher-pane">
+              <div class="launcher-pane-head">
+                <span class="eyebrow">我的项目</span>
+                <span class="launcher-count" id="launcherProjectCount">0</span>
+              </div>
+              <div class="launcher-projects" id="launcherProjects"></div>
+            </section>
+          </div>
+        </div>
+        <div class="launcher-foot">
+          <button class="btn btn-secondary" id="launcherImportButton" type="button">导入参数文件</button>
+          <button class="btn btn-primary" id="launcherContinueButton" type="button">继续当前项目</button>
+        </div>
+      </div>
     </div>
 
     <div class="confirm-modal" id="projectModal" hidden aria-hidden="true">

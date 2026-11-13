@@ -2715,6 +2715,353 @@ html[data-mode="light"] .input-shell select {
   }
 }
 
+/* ── Project launcher ────────────────────────────────────────────────────── */
+
+body.launcher-open {
+  overflow: hidden;
+}
+
+.launcher-modal {
+  position: fixed;
+  z-index: 210;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(3, 6, 4, 0.74);
+  backdrop-filter: blur(10px);
+}
+
+.launcher-modal[hidden] {
+  display: none;
+}
+
+.launcher-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(840px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+
+.launcher-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px 14px;
+}
+
+.launcher-head h2 {
+  margin: 5px 0 0;
+  font-size: 19px;
+  font-weight: 640;
+  letter-spacing: -0.02em;
+}
+
+.launcher-close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dim);
+  cursor: pointer;
+}
+
+.launcher-close:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text);
+}
+
+.launcher-close svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.launcher-body {
+  overflow: auto;
+  padding: 0 24px 20px;
+}
+
+.launcher-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background:
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.055), transparent 55%),
+    var(--panel-soft);
+}
+
+.launcher-current-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.launcher-current-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 620;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-current-copy > span:last-child {
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-current .btn {
+  min-height: 33px;
+  flex: 0 0 auto;
+  padding: 0 10px;
+  font-size: 10px;
+}
+
+.launcher-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 20px;
+}
+
+.launcher-pane {
+  min-width: 0;
+}
+
+.launcher-pane-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.launcher-hint {
+  color: var(--dim);
+  font-size: 8.5px;
+}
+
+.launcher-count {
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 9px;
+}
+
+.launcher-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.launcher-preset {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-soft);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.launcher-preset:hover {
+  border-color: var(--accent-line);
+  background: rgba(var(--accent-rgb), 0.06);
+}
+
+.launcher-preset strong {
+  overflow: hidden;
+  max-width: 100%;
+  font-size: 11px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.launcher-preset span {
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 8.5px;
+}
+
+.launcher-blank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  height: 34px;
+  margin-top: 7px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.launcher-blank:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.launcher-blank .plus {
+  color: var(--dim);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.launcher-projects {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 252px;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.launcher-empty {
+  padding: 22px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 9px;
+  color: var(--dim);
+  font-size: 10px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.project-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+}
+
+.project-entry:hover {
+  border-color: var(--line-strong);
+}
+
+.project-entry-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.project-entry-copy strong {
+  overflow: hidden;
+  color: var(--text-soft);
+  font-size: 10.5px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-entry-copy span {
+  overflow: hidden;
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 8.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-entry-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 5px;
+}
+
+.project-action {
+  height: 25px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 9px;
+  cursor: pointer;
+}
+
+.project-action:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.project-action.is-danger {
+  border-color: rgba(255, 122, 109, 0.3);
+  color: var(--danger);
+}
+
+.launcher-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 13px 24px;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.launcher-foot .btn {
+  min-height: 34px;
+  font-size: 10px;
+}
+
+html[data-mode="light"] .launcher-modal {
+  background: rgba(18, 31, 22, 0.48);
+}
+
+html[data-mode="light"] .launcher-close:hover {
+  background: rgba(18, 42, 26, 0.055);
+}
+
+html[data-mode="light"] .launcher-current {
+  background:
+    linear-gradient(90deg, rgba(var(--accent-rgb), 0.075), transparent 55%),
+    var(--panel-soft);
+}
+
+html[data-mode="light"] .launcher-foot {
+  background: rgba(18, 42, 26, 0.015);
+}
+
 /* ── Project replacement confirmation ───────────────────────────────────── */
 
 body.project-open {
@@ -3416,6 +3763,57 @@ html[data-mode="light"] .toast-icon {
     right: 12px;
     left: 12px;
     width: auto;
+  }
+
+  .launcher-modal {
+    padding: 8px;
+  }
+
+  .launcher-dialog {
+    max-height: calc(100dvh - 16px);
+    border-radius: 13px;
+  }
+
+  .launcher-head {
+    padding: 16px 15px 11px;
+  }
+
+  .launcher-head h2 {
+    font-size: 16px;
+  }
+
+  .launcher-body {
+    padding: 0 15px 15px;
+  }
+
+  .launcher-current {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
+    padding: 11px 12px;
+  }
+
+  .launcher-current .btn {
+    width: 100%;
+  }
+
+  .launcher-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .launcher-projects {
+    max-height: 220px;
+  }
+
+  .launcher-foot {
+    flex-wrap: wrap;
+    padding: 11px 15px;
+  }
+
+  .launcher-foot .btn {
+    flex: 1 1 auto;
+    padding: 0 8px;
   }
 
   .confirm-modal {

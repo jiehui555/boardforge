@@ -57,7 +57,10 @@ const STORAGE_KEY = 'boardforge.case-autosave.v2';
 const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
 const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
+const PROJECTS_STORAGE_KEY = 'boardforge.projects.v1';
+const ACTIVE_PROJECT_STORAGE_KEY = 'boardforge.active-project.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+const MAX_SAVED_PROJECTS = 50;
 
 const SIDE_VIEWS = Object.freeze(['front', 'back', 'left', 'right']);
 const SIDE_VIEW_LABELS = Object.freeze({
@@ -139,7 +142,19 @@ const dom = {
   themeCloseButton: document.querySelector('#themeCloseButton'),
   resetThemeButton: document.querySelector('#resetThemeButton'),
 
-  newButton: document.querySelector('#newButton'),
+  saveProjectButton: document.querySelector('#saveProjectButton'),
+  projectsButton: document.querySelector('#projectsButton'),
+  launcherModal: document.querySelector('#projectLauncher'),
+  launcherCloseButton: document.querySelector('#launcherCloseButton'),
+  launcherCurrentName: document.querySelector('#launcherCurrentName'),
+  launcherCurrentMeta: document.querySelector('#launcherCurrentMeta'),
+  launcherSaveButton: document.querySelector('#launcherSaveButton'),
+  launcherPresets: document.querySelector('#launcherPresets'),
+  launcherNewButton: document.querySelector('#launcherNewButton'),
+  launcherProjectCount: document.querySelector('#launcherProjectCount'),
+  launcherProjects: document.querySelector('#launcherProjects'),
+  launcherImportButton: document.querySelector('#launcherImportButton'),
+  launcherContinueButton: document.querySelector('#launcherContinueButton'),
   importButton: document.querySelector('#importButton'),
   fileInput: document.querySelector('#fileInput'),
   exportFilename: document.querySelector('#exportFilename'),
@@ -196,7 +211,6 @@ let state = createDefaultCaseState();
 let currentThemeColor = DEFAULT_THEME_COLOR;
 let currentMode = DEFAULT_THEME_MODE;
 let selectedPresetId = null;
-let savedStateRestored = false;
 let preview = null;
 let model = null;
 let previewFailed = false;
@@ -219,6 +233,9 @@ let sheetReturnFocus = null;
 let projectReturnFocus = null;
 let pendingProjectAction = null;
 let safeProjectSignatures = null;
+let activeProjectId = null;
+let launcherReturnFocus = null;
+let pendingDeleteProjectId = null;
 let boardCache = null;
 const pendingInvalid = new Set();
 
@@ -231,8 +248,8 @@ function bootstrap() {
   const restored = readStoredState();
   if (restored) {
     state = restored.state;
-    savedStateRestored = true;
   }
+  activeProjectId = readActiveProjectId();
   selectedPresetId = detectPresetId(state);
 
   renderPresets();
@@ -262,11 +279,7 @@ function bootstrap() {
     }
 
     buildNow({ fit: true, initial: true });
-    if (savedStateRestored) {
-      window.setTimeout(() => {
-        toast('已恢复上次外壳参数', '本地自动保存已恢复', 'success');
-      }, 550);
-    }
+    openProjectLauncher({ startup: true });
   });
 }
 
@@ -1514,6 +1527,8 @@ function loadPreset(id) {
   if (!preset) return;
   pendingInvalid.clear();
   state = createCaseFromPreset(preset);
+  activeProjectId = null;
+  writeActiveProjectId(null);
   selectedPresetId = preset.id;
   syncFormFromState();
   selectedPresetId = preset.id;
@@ -1526,12 +1541,15 @@ function loadPreset(id) {
   syncExplodeUi();
   scheduleBuild({ fit: true, immediate: true });
   queueSave();
+  closeProjectLauncher({ restoreFocus: false });
   toast(`已载入 ${preset.label}`, `${preset.detail} mm · 外壳参数已重置`);
 }
 
 function applyNewProject() {
   pendingInvalid.clear();
   state = createDefaultCaseState();
+  activeProjectId = null;
+  writeActiveProjectId(null);
   selectedPresetId = detectPresetId(state);
   syncFormFromState();
   if (preview) {
@@ -1542,7 +1560,301 @@ function applyNewProject() {
   syncExplodeUi();
   scheduleBuild({ fit: true, immediate: true });
   queueSave();
+  closeProjectLauncher({ restoreFocus: false });
   toast('已新建默认外壳', '六面板榫卯 · 3 mm 亚克力 · M3 五金');
+}
+
+function readActiveProjectId() {
+  try {
+    return localStorage.getItem(ACTIVE_PROJECT_STORAGE_KEY) || null;
+  } catch {
+    return null;
+  }
+}
+
+function writeActiveProjectId(id) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_PROJECT_STORAGE_KEY, id);
+    else localStorage.removeItem(ACTIVE_PROJECT_STORAGE_KEY);
+  } catch {
+    // The in-memory active project still works without storage.
+  }
+}
+
+function makeProjectId() {
+  if (globalThis.crypto?.randomUUID) return `prj-${globalThis.crypto.randomUUID()}`;
+  return `prj-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function readProjectLibrary() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PROJECTS_STORAGE_KEY) || 'null');
+    const list = Array.isArray(raw) ? raw : raw?.projects;
+    if (!Array.isArray(list)) return [];
+    return list
+      .filter(
+        (project) =>
+          isPlainObject(project) &&
+          typeof project.id === 'string' &&
+          typeof project.name === 'string' &&
+          isPlainObject(project.document),
+      )
+      .map((project) => ({ ...project }));
+  } catch {
+    return [];
+  }
+}
+
+function writeProjectLibrary(projects) {
+  try {
+    localStorage.setItem(
+      PROJECTS_STORAGE_KEY,
+      JSON.stringify({ version: 1, projects }),
+    );
+    return true;
+  } catch {
+    toast('项目库保存失败', '浏览器本地存储空间不足或被禁用。', 'error');
+    return false;
+  }
+}
+
+function projectDocumentSummary(document) {
+  const board = document?.board;
+  const boardText = board
+    ? `${formatNumber(board.length)} × ${formatNumber(board.width)} × ` +
+      `${formatNumber(board.thickness)} mm`
+    : '未知板尺寸';
+  const holes = Array.isArray(document?.holes) ? document.holes.length : 0;
+  const openings = Array.isArray(document?.openings)
+    ? document.openings.length
+    : 0;
+  return `${boardText} · ${holes} 孔 · ${openings} 开孔`;
+}
+
+function formatProjectDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date);
+}
+
+function renderProjectLauncher() {
+  const projects = readProjectLibrary();
+  if (activeProjectId && !projects.some((project) => project.id === activeProjectId)) {
+    activeProjectId = null;
+    writeActiveProjectId(null);
+  }
+
+  const dims = deriveCaseDimensions(state);
+  const linkedProject = projects.find(
+    (project) => project.id === activeProjectId,
+  );
+  let saveState = '草稿未保存';
+  if (linkedProject) {
+    try {
+      saveState =
+        projectSignature(linkedProject.document) === projectSignature(state)
+          ? '已保存到项目库'
+          : '项目库有未保存修改';
+    } catch {
+      saveState = '已关联项目库';
+    }
+  }
+  dom.launcherCurrentName.textContent = state.name.trim() || '未命名开发板外壳';
+  dom.launcherCurrentMeta.textContent =
+    `${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} × ` +
+    `${formatNumber(state.board.thickness)} mm · ${state.holes.length} 孔 · ` +
+    `${state.openings.length} 开孔 · ${formatNumber(dims.outerWidth)} × ` +
+    `${formatNumber(dims.outerDepth)} × ${formatNumber(dims.outerHeight)} mm · ` +
+    saveState;
+
+  dom.launcherPresets.innerHTML = PRESETS.map(
+    (preset) => `
+      <button class="launcher-preset" type="button" data-launcher-preset="${preset.id}">
+        <strong>${escapeHtml(preset.label)}</strong>
+        <span>${escapeHtml(preset.detail)} mm</span>
+      </button>`,
+  ).join('');
+
+  dom.launcherProjectCount.textContent = String(projects.length);
+  if (projects.length === 0) {
+    dom.launcherProjects.innerHTML = `
+      <div class="launcher-empty">
+        还没有保存的项目。点击「保存」把当前编辑加入项目库。
+      </div>`;
+    return;
+  }
+
+  const sorted = [...projects].sort(
+    (a, b) => new Date(b.updated || 0) - new Date(a.updated || 0),
+  );
+  dom.launcherProjects.innerHTML = sorted
+    .map((project) => {
+      const pendingDelete = project.id === pendingDeleteProjectId;
+      return `
+        <div class="project-entry" data-project-id="${escapeHtml(project.id)}">
+          <div class="project-entry-copy">
+            <strong>${escapeHtml(project.name)}</strong>
+            <span>${escapeHtml(projectDocumentSummary(project.document))} · ${escapeHtml(formatProjectDate(project.updated))}</span>
+          </div>
+          <div class="project-entry-actions">
+            ${
+              pendingDelete
+                ? `<button class="project-action is-danger" type="button" data-confirm-delete="${escapeHtml(project.id)}">确认删除</button>
+                   <button class="project-action" type="button" data-cancel-delete="${escapeHtml(project.id)}">取消</button>`
+                : `<button class="project-action" type="button" data-open-project="${escapeHtml(project.id)}">打开</button>
+                   <button class="project-action" type="button" data-delete-project="${escapeHtml(project.id)}">删除</button>`
+            }
+          </div>
+        </div>`;
+    })
+    .join('');
+}
+
+function openProjectLauncher() {
+  pendingDeleteProjectId = null;
+  renderProjectLauncher();
+  launcherReturnFocus = document.activeElement;
+  dom.launcherModal.hidden = false;
+  dom.launcherModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('launcher-open');
+  requestAnimationFrame(() => dom.launcherContinueButton.focus());
+}
+
+function closeProjectLauncher({ restoreFocus = true } = {}) {
+  if (dom.launcherModal.hidden) return;
+  dom.launcherModal.hidden = true;
+  dom.launcherModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('launcher-open');
+  pendingDeleteProjectId = null;
+  if (restoreFocus && launcherReturnFocus?.focus) launcherReturnFocus.focus();
+  launcherReturnFocus = null;
+}
+
+function saveCurrentProject() {
+  if (pendingInvalid.size > 0) {
+    toast('请先修正参数', '高亮字段的数值无效或超出范围。', 'error');
+    return false;
+  }
+  const projects = readProjectLibrary();
+  let index = projects.findIndex((project) => project.id === activeProjectId);
+  if (index < 0 && activeProjectId) {
+    activeProjectId = null;
+    writeActiveProjectId(null);
+  }
+  if (index < 0 && projects.length >= MAX_SAVED_PROJECTS) {
+    toast('项目数量已满', `最多保存 ${MAX_SAVED_PROJECTS} 个项目。`, 'warning');
+    return false;
+  }
+
+  const documentData = touchDocument();
+  const now = documentData.meta.updated;
+  const existing = index >= 0 ? projects[index] : null;
+  const id = existing?.id || makeProjectId();
+  const entry = {
+    id,
+    name: documentData.name,
+    created: existing?.created || documentData.meta.created,
+    updated: now,
+    document: documentData,
+  };
+  if (existing) projects[index] = entry;
+  else projects.push(entry);
+
+  if (!writeProjectLibrary(projects)) return false;
+  activeProjectId = id;
+  writeActiveProjectId(id);
+  saveNow();
+  if (!dom.launcherModal.hidden) renderProjectLauncher();
+  toast('项目已保存', `「${documentData.name}」已加入项目库。`, 'success');
+  return true;
+}
+
+function openProjectById(id) {
+  const project = readProjectLibrary().find((entry) => entry.id === id);
+  if (!project) {
+    toast('项目不存在', '它可能已经被删除。', 'error');
+    return false;
+  }
+
+  let normalized;
+  try {
+    normalized = normalizeCaseState(project.document);
+  } catch (error) {
+    toast('项目无法打开', error?.message || String(error), 'error');
+    return false;
+  }
+
+  pendingInvalid.clear();
+  state = normalized.state;
+  activeProjectId = id;
+  writeActiveProjectId(id);
+  selectedPresetId = detectPresetId(state);
+  syncFormFromState();
+  if (preview) {
+    preview.setBoardColor(state.board.color);
+    preview.setExploded(false);
+  }
+  exploded = false;
+  syncExplodeUi();
+  scheduleBuild({ fit: true, immediate: true });
+  queueSave();
+  closeProjectLauncher({ restoreFocus: false });
+  if (normalized.warnings.length > 0) {
+    toast('项目已打开，部分字段已修正', normalized.warnings[0], 'warning');
+  } else {
+    toast('项目已打开', project.name);
+  }
+  return true;
+}
+
+function requestOpenProject(id) {
+  if (id === activeProjectId) {
+    closeProjectLauncher({ restoreFocus: false });
+    return;
+  }
+  const project = readProjectLibrary().find((entry) => entry.id === id);
+  if (!project) return;
+  if (projectIsSafeToReplace()) {
+    openProjectById(id);
+    return;
+  }
+  openProjectDialog({ type: 'library', project });
+}
+
+function deleteProjectFromLibrary(id) {
+  const projects = readProjectLibrary();
+  const index = projects.findIndex((project) => project.id === id);
+  if (index < 0) return;
+  const wasActive = id === activeProjectId;
+  projects.splice(index, 1);
+  if (!writeProjectLibrary(projects)) return;
+  if (wasActive) {
+    activeProjectId = null;
+    writeActiveProjectId(null);
+  }
+  pendingDeleteProjectId = null;
+  renderProjectLauncher();
+  toast(
+    '项目已删除',
+    wasActive
+      ? '当前编辑仍保留为草稿，可继续保存。'
+      : '已从本机项目库移除。',
+    wasActive ? 'warning' : 'success',
+  );
+}
+
+function requestDeleteProject(id) {
+  if (pendingDeleteProjectId === id) {
+    deleteProjectFromLibrary(id);
+    return;
+  }
+  pendingDeleteProjectId = id;
+  renderProjectLauncher();
 }
 
 function projectSignature(candidate) {
@@ -1560,7 +1872,15 @@ function projectIsSafeToReplace() {
       ),
     ]);
   }
-  return safeProjectSignatures.has(projectSignature(state));
+  const current = projectSignature(state);
+  if (safeProjectSignatures.has(current)) return true;
+  try {
+    return readProjectLibrary().some(
+      (project) => projectSignature(project.document) === current,
+    );
+  } catch {
+    return false;
+  }
 }
 
 function requestPresetLoad(id) {
@@ -1591,13 +1911,18 @@ function projectSummaryItem(label, value) {
 
 function openProjectDialog(action) {
   const isPreset = action.type === 'preset';
+  const isLibrary = action.type === 'library';
   const dims = deriveCaseDimensions(state);
-  dom.projectDialogTitle.textContent = isPreset
-    ? `载入「${action.preset.label}」？`
-    : '新建项目？';
-  dom.projectDialogText.textContent = isPreset
-    ? `载入预设会替换当前项目「${state.name}」的板子、孔位、开孔和外壳参数。`
-    : `新建会替换当前项目「${state.name}」的所有参数。`;
+  dom.projectDialogTitle.textContent = isLibrary
+    ? `打开「${action.project.name}」？`
+    : isPreset
+      ? `载入「${action.preset.label}」？`
+      : '新建项目？';
+  dom.projectDialogText.textContent = isLibrary
+    ? `打开项目会替换当前项目「${state.name}」的板子、孔位、开孔和外壳参数。`
+    : isPreset
+      ? `载入预设会替换当前项目「${state.name}」的板子、孔位、开孔和外壳参数。`
+      : `新建会替换当前项目「${state.name}」的所有参数。`;
   dom.projectDialogSummary.innerHTML = [
     projectSummaryItem('当前项目', state.name),
     projectSummaryItem(
@@ -1615,8 +1940,16 @@ function openProjectDialog(action) {
         `${formatNumber(dims.outerHeight)} mm`,
     ),
   ].join('');
-  dom.projectDirectButton.textContent = isPreset ? '直接载入' : '直接新建';
-  dom.projectExportButton.textContent = isPreset ? '导出并载入' : '导出并新建';
+  dom.projectDirectButton.textContent = isLibrary
+    ? '直接打开'
+    : isPreset
+      ? '直接载入'
+      : '直接新建';
+  dom.projectExportButton.textContent = isLibrary
+    ? '导出并打开'
+    : isPreset
+      ? '导出并载入'
+      : '导出并新建';
 
   pendingProjectAction = action;
   projectReturnFocus = document.activeElement;
@@ -1638,8 +1971,10 @@ function closeProjectDialog({ restoreFocus = true } = {}) {
 
 function performProjectAction(action) {
   if (!action) return;
+  closeProjectLauncher({ restoreFocus: false });
   if (action.type === 'preset') loadPreset(action.preset.id);
   else if (action.type === 'new') applyNewProject();
+  else if (action.type === 'library') openProjectById(action.project.id);
 }
 
 function confirmProjectDirect() {
@@ -2100,6 +2435,8 @@ async function importBoardFile(file) {
       normalizeCaseState(raw);
     pendingInvalid.clear();
     state = importedState;
+    activeProjectId = null;
+    writeActiveProjectId(null);
     selectedPresetId = detectPresetId(state);
     syncFormFromState();
     selectedPresetId = detectPresetId(state);
@@ -2112,6 +2449,7 @@ async function importBoardFile(file) {
     syncExplodeUi();
     scheduleBuild({ fit: true, immediate: true });
     queueSave();
+    closeProjectLauncher({ restoreFocus: false });
 
     if (warnings.length > 0) {
       toast('参数已导入，已自动修正部分字段', warnings.join(' '), 'warning');
@@ -2171,7 +2509,7 @@ function tightenLegacyDefaultEnclosure(candidate) {
 
 function queueSave() {
   clearTimeout(saveTimer);
-  dom.autosaveLabel.textContent = '正在保存…';
+  dom.autosaveLabel.textContent = '正在保存草稿…';
   dom.autosaveLabel.classList.remove('is-saved');
   saveTimer = window.setTimeout(saveNow, 320);
 }
@@ -2181,11 +2519,11 @@ function saveNow() {
   try {
     const documentData = toCaseDocument(state, { touch: false });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(documentData));
-    dom.autosaveLabel.textContent = '已保存到本机';
+    dom.autosaveLabel.textContent = '草稿已保存';
     dom.autosaveLabel.classList.add('is-saved');
     clearTimeout(savedLabelTimer);
     savedLabelTimer = window.setTimeout(() => {
-      dom.autosaveLabel.textContent = '本地自动保存';
+      dom.autosaveLabel.textContent = '草稿自动保存';
       dom.autosaveLabel.classList.remove('is-saved');
     }, 1800);
   } catch {
@@ -2388,7 +2726,41 @@ function bindEvents() {
   });
   dom.resetThemeButton.addEventListener('click', resetTheme);
 
-  dom.newButton.addEventListener('click', requestNewProject);
+  dom.saveProjectButton.addEventListener('click', saveCurrentProject);
+  dom.projectsButton.addEventListener('click', openProjectLauncher);
+  dom.launcherCloseButton.addEventListener('click', () => closeProjectLauncher());
+  dom.launcherContinueButton.addEventListener('click', () => closeProjectLauncher());
+  dom.launcherModal.addEventListener('click', (event) => {
+    if (event.target === dom.launcherModal) closeProjectLauncher();
+  });
+  dom.launcherSaveButton.addEventListener('click', saveCurrentProject);
+  dom.launcherNewButton.addEventListener('click', requestNewProject);
+  dom.launcherImportButton.addEventListener('click', () => dom.fileInput.click());
+  dom.launcherPresets.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-launcher-preset]');
+    if (button) requestPresetLoad(button.dataset.launcherPreset);
+  });
+  dom.launcherProjects.addEventListener('click', (event) => {
+    const open = event.target.closest('[data-open-project]');
+    if (open) {
+      requestOpenProject(open.dataset.openProject);
+      return;
+    }
+    const remove = event.target.closest('[data-delete-project]');
+    if (remove) {
+      requestDeleteProject(remove.dataset.deleteProject);
+      return;
+    }
+    const confirmDelete = event.target.closest('[data-confirm-delete]');
+    if (confirmDelete) {
+      deleteProjectFromLibrary(confirmDelete.dataset.confirmDelete);
+      return;
+    }
+    if (event.target.closest('[data-cancel-delete]')) {
+      pendingDeleteProjectId = null;
+      renderProjectLauncher();
+    }
+  });
 
   dom.importButton.addEventListener('click', () => dom.fileInput.click());
   dom.fileInput.addEventListener('change', () => {
@@ -2419,6 +2791,11 @@ function bindEvents() {
     if (!dom.projectModal.hidden) {
       event.preventDefault();
       closeProjectDialog();
+      return;
+    }
+    if (!dom.launcherModal.hidden) {
+      event.preventDefault();
+      closeProjectLauncher();
       return;
     }
     if (!dom.sheetModal.hidden) {
