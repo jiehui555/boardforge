@@ -645,48 +645,32 @@ html[data-mode="light"] .mode-icon-sun {
   background: rgba(255, 255, 255, 0.022);
 }
 
-.section-summary:hover .summary-title-row strong {
-  color: var(--text);
-}
-
-.summary-copy {
+.summary-main {
   display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: 4px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
   min-width: 0;
 }
 
 .section-summary .eyebrow {
+  flex: 0 0 auto;
   gap: 0;
-  color: var(--dim);
-  font-size: 8.5px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-}
-
-.summary-title-row {
-  display: grid;
-  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
-  align-items: baseline;
-  gap: 12px;
-  min-width: 0;
-}
-
-.summary-title-row strong {
-  min-width: 0;
-  overflow: hidden;
   color: var(--text-soft);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  letter-spacing: 0.035em;
   transition: color 0.16s ease;
+}
+
+.section-summary:hover .eyebrow {
+  color: var(--text);
 }
 
 .summary-meta {
   min-width: 0;
+  margin-left: auto;
   overflow: hidden;
   color: var(--dim);
   font-family: var(--mono);
@@ -696,10 +680,9 @@ html[data-mode="light"] .mode-icon-sun {
   white-space: nowrap;
 }
 
-.summary-title-row .count-pill {
-  justify-self: end;
+.summary-main .count-pill {
   min-width: 0;
-  margin: 0;
+  margin: 0 0 0 auto;
   padding: 2px 7px;
   border-color: var(--line);
   background: transparent;
@@ -3433,12 +3416,12 @@ html[data-mode="light"] .toast-icon {
     padding: 14px 15px 17px;
   }
 
-  .summary-title-row {
-    gap: 8px;
+  .summary-main {
+    gap: 10px;
   }
 
-  .summary-title-row strong {
-    font-size: 13px;
+  .section-summary .eyebrow {
+    font-size: 10.5px;
   }
 
   .summary-meta {
@@ -3595,12 +3578,9 @@ html[data-mode="light"] .toast-icon {
 
             <details class="panel-section accordion-section" data-accordion="enclosure" open>
               <summary class="section-summary">
-                <span class="summary-copy">
+                <span class="summary-main">
                   <span class="eyebrow"><span class="step">01</span> 外壳尺寸</span>
-                  <span class="summary-title-row">
-                    <strong>盒体与板材</strong>
-                    <span class="summary-meta" id="enclosureSummary">95 × 66 × 29.6 mm</span>
-                  </span>
+                  <span class="summary-meta" id="enclosureSummary">95 × 66 × 29.6 mm</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
               </summary>
@@ -3652,12 +3632,9 @@ html[data-mode="light"] .toast-icon {
 
             <details class="panel-section accordion-section" data-accordion="mechanical">
               <summary class="section-summary">
-                <span class="summary-copy">
+                <span class="summary-main">
                   <span class="eyebrow"><span class="step">02</span> 固定与散热</span>
-                  <span class="summary-title-row">
-                    <strong>一体固定柱与通风槽</strong>
-                    <span class="summary-meta" id="mechanicalSummary">4 组固定柱 · 5 条通风槽</span>
-                  </span>
+                  <span class="summary-meta" id="mechanicalSummary">4 组固定柱 · 5 条通风槽</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
               </summary>
@@ -3732,12 +3709,9 @@ html[data-mode="light"] .toast-icon {
 
             <details class="panel-section accordion-section openings-section" data-accordion="openings">
               <summary class="section-summary">
-                <span class="summary-copy">
+                <span class="summary-main">
                   <span class="eyebrow"><span class="step">03</span> 接口开孔</span>
-                  <span class="summary-title-row">
-                    <strong>侧板开口</strong>
-                    <span class="count-pill" id="openingCount">0 / 32</span>
-                  </span>
+                  <span class="count-pill" id="openingCount">0 / 32</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
               </summary>
@@ -3788,12 +3762,9 @@ html[data-mode="light"] .toast-icon {
 
             <details class="panel-section accordion-section board-details" id="boardDetails" data-accordion="board">
               <summary class="section-summary">
-                <span class="summary-copy">
+                <span class="summary-main">
                   <span class="eyebrow"><span class="step">04</span> 开发板参考</span>
-                  <span class="summary-title-row">
-                    <strong>板子尺寸与安装孔</strong>
-                    <span class="summary-meta" id="boardSummary">85 × 56 × 1.6 mm · 4 孔</span>
-                  </span>
+                  <span class="summary-meta" id="boardSummary">85 × 56 × 1.6 mm · 4 孔</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
               </summary>

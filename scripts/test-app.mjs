@@ -279,14 +279,17 @@ try {
   await selectView('front');
   await page.waitForTimeout(760);
   await selectView('back');
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    () => Math.abs(window.boardForge.getCamera().direction[0]) > 0.5,
+    { timeout: 3_000 },
+  );
   const arcMidpoint = await page.evaluate(() => window.boardForge.getCamera());
   ok(
     Math.abs(arcMidpoint.direction[0]) > 0.5,
     'front-to-back transition orbits through a side view',
   );
   ok(arcMidpoint.distance > 20, 'view transition keeps the camera away from the model centre');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(700);
   const backView = await page.evaluate(() => window.boardForge.getCamera());
   ok(backView.direction[1] > 0.98, 'front-to-back transition ends on the back view');
 
