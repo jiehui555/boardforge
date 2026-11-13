@@ -81,6 +81,14 @@ async function state() {
   return page.evaluate(() => window.boardForge.getState());
 }
 
+async function openAccordion(name) {
+  const section = page.locator(`.accordion-section[data-accordion="${name}"]`);
+  if (!(await section.evaluate((element) => element.open))) {
+    await section.locator(':scope > summary').click();
+    await page.waitForTimeout(180);
+  }
+}
+
 async function download(selector, destination) {
   await page.locator(selector).scrollIntoViewIfNeeded();
   await page.waitForTimeout(120);
@@ -144,6 +152,15 @@ try {
     (await page.locator('#hardwareSummary').textContent()).includes('固定柱'),
     'BOM summary reports the integrated columns',
   );
+  ok(
+    (await page.locator('.accordion-section[open]').count()) === 1,
+    'only one major sidebar module is open initially',
+  );
+  ok(
+    (await page.locator('.accordion-section[data-accordion="enclosure"]').evaluate((element) => element.open)) === true,
+    'enclosure dimensions are open by default',
+  );
+  ok(await page.locator('#lengthInput').isHidden(), 'collapsed board reference hides its fields');
   ok(initial.diagnostics.outer.width === 95, 'default outer width is a snug 95 mm');
   ok(initial.diagnostics.outer.depth === 66, 'default outer depth is a snug 66 mm');
   ok(initial.diagnostics.outer.height === 29.6, 'default outer height is 29.6 mm');
@@ -156,6 +173,12 @@ try {
   );
 
   // A smaller clearance removes the board-hole compatibility warning.
+  await openAccordion('mechanical');
+  ok(
+    (await page.locator('.accordion-section[open]').count()) === 1 &&
+      (await page.locator('.accordion-section[data-accordion="enclosure"]').evaluate((element) => element.open)) === false,
+    'opening another module closes the previous one',
+  );
   await page.locator('#screwClearanceInput').fill('2.9');
   await waitIdle();
   ok(
@@ -165,6 +188,7 @@ try {
   await page.locator('#screwClearanceInput').fill('3.4');
   await waitIdle();
 
+  await openAccordion('enclosure');
   await page.screenshot({ path: join(screenshots, 'case-default.png') });
 
   // Perspective / orthographic projection switch.
@@ -262,6 +286,7 @@ try {
   await waitIdle();
 
   // Enclosure inputs drive the derived dimensions.
+  await openAccordion('enclosure');
   await page.locator('#panelThicknessInput').fill('4');
   await waitIdle();
   const thicker = await diagnostics();
@@ -278,7 +303,7 @@ try {
   await waitIdle();
 
   // Board reference remains editable and feeds the enclosure.
-  await page.locator('#boardDetails summary').click();
+  await openAccordion('board');
   ok(await page.locator('#lengthInput').isVisible(), 'board reference details expand');
   await page.locator('#lengthInput').fill('90');
   await waitIdle();
@@ -291,6 +316,7 @@ try {
   await waitIdle();
 
   // Add a valid side-panel cut-out.
+  await openAccordion('openings');
   await page.locator('#addOpeningButton').click();
   await page.waitForTimeout(150);
   ok((await page.locator('.opening-card').count()) === 1, 'an opening card can be added');
@@ -389,6 +415,7 @@ try {
   );
 
   // Vent toggle.
+  await openAccordion('mechanical');
   const ventTopBefore = (await diagnostics()).panels.find((panel) => panel.id === 'top').holes;
   await page.locator('.switch-row').click();
   await waitIdle();
@@ -401,12 +428,32 @@ try {
   ok(await page.locator('#ventEnabledInput').isChecked(), 'vent switch can be turned back on');
 
   // Invalid dimensions block exports and clamp on blur.
+  await openAccordion('enclosure');
   await page.locator('#panelThicknessInput').fill('0');
   await page.waitForTimeout(100);
   ok(await page.locator('#exportDxfButton').isDisabled(), 'DXF export is blocked for invalid thickness');
   await page.locator('#panelThicknessInput').blur();
   await waitIdle();
   ok((await page.locator('#panelThicknessInput').inputValue()) === '1', 'invalid thickness clamps to 1 mm');
+  await page.locator('#panelThicknessInput').fill('3');
+  await waitIdle();
+
+  // Invalid fields automatically reveal their module.
+  await openAccordion('mechanical');
+  await page.evaluate(() => {
+    const input = document.querySelector('#panelThicknessInput');
+    input.value = '0';
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await page.waitForTimeout(220);
+  ok(
+    (await page.locator('.accordion-section[data-accordion="enclosure"]').evaluate((element) => element.open)) === true,
+    'invalid parameters open their module',
+  );
+  ok(
+    (await page.locator('.accordion-section[data-accordion="mechanical"]').evaluate((element) => element.open)) === false,
+    'revealing an invalid field keeps the accordion exclusive',
+  );
   await page.locator('#panelThicknessInput').fill('3');
   await waitIdle();
 

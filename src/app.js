@@ -85,6 +85,8 @@ const dom = {
   outerDimensions: document.querySelector('#outerDimensions'),
   innerHeight: document.querySelector('#innerHeight'),
   enclosureNote: document.querySelector('#enclosureNote'),
+  enclosureSummary: document.querySelector('#enclosureSummary'),
+  mechanicalSummary: document.querySelector('#mechanicalSummary'),
 
   openingList: document.querySelector('#openingList'),
   openingCount: document.querySelector('#openingCount'),
@@ -162,6 +164,7 @@ const dom = {
   projectionButton: document.querySelector('#projectionButton'),
   projectionButtonLabel: document.querySelector('#projectionButtonLabel'),
   explodeButton: document.querySelector('#explodeButton'),
+  accordionSections: Array.from(document.querySelectorAll('.accordion-section')),
 };
 
 const boardInputs = Array.from(document.querySelectorAll('input[data-path]'));
@@ -211,6 +214,7 @@ function bootstrap() {
   renderOpeningPresetOptions();
   syncFormFromState();
   syncProjectionUi();
+  initializeAccordions();
   bindEvents();
   exposeDebugApi();
 
@@ -327,6 +331,31 @@ function handleThemeEscape(event) {
   }
 }
 
+/* ── Sidebar accordions ─────────────────────────────────────────────────── */
+
+function initializeAccordions() {
+  const reducedMotion = window.matchMedia?.(
+    '(prefers-reduced-motion: reduce)',
+  )?.matches;
+  const scrollBehavior = reducedMotion ? 'auto' : 'smooth';
+
+  for (const section of dom.accordionSections) {
+    section.addEventListener('toggle', () => {
+      if (!section.open) return;
+      for (const other of dom.accordionSections) {
+        if (other !== section && other.open) other.open = false;
+      }
+      section.scrollIntoView({ block: 'start', behavior: scrollBehavior });
+    });
+  }
+}
+
+function revealAccordionFor(element) {
+  const section = element?.closest?.('.accordion-section');
+  if (!section || section.open) return;
+  section.open = true;
+}
+
 /* ── Form sync ──────────────────────────────────────────────────────────── */
 
 function syncFormFromState() {
@@ -384,6 +413,9 @@ function updateDerivedUi() {
     `${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ` +
     `${formatNumber(dims.outerHeight)}`;
   dom.innerHeight.textContent = `${formatNumber(dims.innerHeight)} mm`;
+  dom.enclosureSummary.textContent =
+    `${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ` +
+    `${formatNumber(dims.outerHeight)} mm`;
   dom.enclosureNote.textContent =
     `内腔 ${formatNumber(dims.innerWidth)} × ${formatNumber(dims.innerDepth)} × ` +
     `${formatNumber(dims.innerHeight)} mm · 6 块 ${formatNumber(dims.panelThickness)} mm 亚克力`;
@@ -454,6 +486,10 @@ function updateBom(actualMountCount = null) {
     count > 0
       ? `${count} 组一体固定柱 · ${count * 2} 颗 ${screwLabel} 螺丝`
       : '暂无可用固定柱';
+  const vent = state.enclosure.vent;
+  dom.mechanicalSummary.textContent =
+    `${count} 组固定柱 · ` +
+    (vent.enabled ? `${formatNumber(vent.count)} 条通风槽` : '通风关闭');
   dom.bomList.innerHTML = rows
     .map(
       ([label, value]) =>
@@ -541,6 +577,7 @@ function markFieldInvalid(input, invalid) {
   input.setAttribute('aria-invalid', invalid ? 'true' : 'false');
   const shell = input.closest('.input-shell') || input.closest('.hole-field');
   if (shell) shell.classList.toggle('is-invalid', invalid);
+  if (invalid) revealAccordionFor(input);
 }
 
 function clearAllFieldErrors() {

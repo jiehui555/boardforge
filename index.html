@@ -121,76 +121,78 @@
                 <input id="caseName" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="未命名开发板外壳" />
               </label>
               <div class="preset-row" id="presetRow" aria-label="常用开发板预设"></div>
-              <div class="project-tags">
-                <span>六面板榫卯</span>
-                <span>一体固定柱</span>
-                <span>激光切割</span>
-              </div>
             </section>
 
-            <section class="panel-section">
-              <div class="section-heading">
-                <div>
+            <details class="panel-section accordion-section" data-accordion="enclosure" open>
+              <summary class="section-summary">
+                <span class="summary-copy">
                   <span class="eyebrow"><span class="step">01</span> 外壳尺寸</span>
-                  <h2>盒体与板材</h2>
+                  <span class="summary-title-row">
+                    <strong>盒体与板材</strong>
+                    <span class="summary-meta" id="enclosureSummary">95 × 66 × 29.6 mm</span>
+                  </span>
+                </span>
+                <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+              </summary>
+              <div class="section-body">
+                <div class="dimension-grid">
+                  <label class="field">
+                    <span class="field-label">板厚 <em>T</em></span>
+                    <span class="input-shell">
+                      <input id="panelThicknessInput" data-case="panel_thickness" type="number" min="1" max="10" step="0.1" inputmode="decimal" value="3" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">板边间隙 <em>C</em></span>
+                    <span class="input-shell">
+                      <input id="clearanceInput" data-case="clearance" type="number" min="1" max="60" step="0.5" inputmode="decimal" value="2" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">底部净空 <em>B</em></span>
+                    <span class="input-shell">
+                      <input id="bottomGapInput" data-case="bottom_gap" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="6" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
+                  <label class="field">
+                    <span class="field-label">顶部净空 <em>H</em></span>
+                    <span class="input-shell">
+                      <input id="topGapInput" data-case="top_gap" type="number" min="2" max="180" step="0.5" inputmode="decimal" value="16" />
+                      <span class="unit">mm</span>
+                    </span>
+                  </label>
                 </div>
-                <span class="section-unit">mm</span>
-              </div>
 
-              <div class="dimension-grid">
-                <label class="field">
-                  <span class="field-label">板厚 <em>T</em></span>
-                  <span class="input-shell">
-                    <input id="panelThicknessInput" data-case="panel_thickness" type="number" min="1" max="10" step="0.1" inputmode="decimal" value="3" />
-                    <span class="unit">mm</span>
-                  </span>
-                </label>
-                <label class="field">
-                  <span class="field-label">板边间隙 <em>C</em></span>
-                  <span class="input-shell">
-                    <input id="clearanceInput" data-case="clearance" type="number" min="1" max="60" step="0.5" inputmode="decimal" value="2" />
-                    <span class="unit">mm</span>
-                  </span>
-                </label>
-                <label class="field">
-                  <span class="field-label">底部净空 <em>B</em></span>
-                  <span class="input-shell">
-                    <input id="bottomGapInput" data-case="bottom_gap" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="6" />
-                    <span class="unit">mm</span>
-                  </span>
-                </label>
-                <label class="field">
-                  <span class="field-label">顶部净空 <em>H</em></span>
-                  <span class="input-shell">
-                    <input id="topGapInput" data-case="top_gap" type="number" min="2" max="180" step="0.5" inputmode="decimal" value="16" />
-                    <span class="unit">mm</span>
-                  </span>
-                </label>
-              </div>
-
-              <div class="derived-row">
-                <div>
-                  <span>外壳外形</span>
-                  <b id="outerDimensions">95 × 66 × 29.6</b>
+                <div class="derived-row">
+                  <div>
+                    <span>外壳外形</span>
+                    <b id="outerDimensions">95 × 66 × 29.6</b>
+                  </div>
+                  <div>
+                    <span>内腔净高</span>
+                    <b id="innerHeight">23.6 mm</b>
+                  </div>
                 </div>
-                <div>
-                  <span>内腔净高</span>
-                  <b id="innerHeight">23.6 mm</b>
-                </div>
+                <p class="field-note" id="enclosureNote">默认采用紧凑贴合尺寸，可增大板边间隙和净空容纳连接器。</p>
               </div>
-              <p class="field-note" id="enclosureNote">默认采用紧凑贴合尺寸，可增大板边间隙和净空容纳连接器。</p>
-            </section>
+            </details>
 
-            <section class="panel-section">
-              <div class="section-heading">
-                <div>
+            <details class="panel-section accordion-section" data-accordion="mechanical">
+              <summary class="section-summary">
+                <span class="summary-copy">
                   <span class="eyebrow"><span class="step">02</span> 固定与散热</span>
-                  <h2>一体固定柱与通风槽</h2>
-                </div>
-                <span class="section-unit">五金</span>
-              </div>
-
-              <div class="dimension-grid compact-grid">
+                  <span class="summary-title-row">
+                    <strong>一体固定柱与通风槽</strong>
+                    <span class="summary-meta" id="mechanicalSummary">4 组固定柱 · 5 条通风槽</span>
+                  </span>
+                </span>
+                <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+              </summary>
+              <div class="section-body">
+                <div class="dimension-grid compact-grid">
                 <label class="field">
                   <span class="field-label">固定柱过孔</span>
                   <span class="input-shell">
@@ -255,17 +257,21 @@
                   <button class="bom-copy" id="copyBomButton" type="button">复制五金清单</button>
                 </div>
               </details>
-            </section>
-
-            <section class="panel-section openings-section">
-              <div class="section-heading">
-                <div>
-                  <span class="eyebrow"><span class="step">03</span> 接口开孔</span>
-                  <h2>侧板开口</h2>
-                </div>
-                <span class="count-pill" id="openingCount">0 / 32</span>
               </div>
+            </details>
 
+            <details class="panel-section accordion-section openings-section" data-accordion="openings">
+              <summary class="section-summary">
+                <span class="summary-copy">
+                  <span class="eyebrow"><span class="step">03</span> 接口开孔</span>
+                  <span class="summary-title-row">
+                    <strong>侧板开口</strong>
+                    <span class="count-pill" id="openingCount">0 / 32</span>
+                  </span>
+                </span>
+                <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+              </summary>
+              <div class="section-body">
               <div class="coordinate-note">
                 <span class="axis-icon" aria-hidden="true">
                   <svg viewBox="0 0 36 36" fill="none">
@@ -307,17 +313,21 @@
                 <span class="plus">+</span>
                 <span>添加自定义开孔</span>
               </button>
-            </section>
+              </div>
+            </details>
 
-            <details class="panel-section board-details" id="boardDetails">
-              <summary>
-                <div class="board-summary-copy">
+            <details class="panel-section accordion-section board-details" id="boardDetails" data-accordion="board">
+              <summary class="section-summary">
+                <span class="summary-copy">
                   <span class="eyebrow"><span class="step">04</span> 开发板参考</span>
-                  <strong id="boardSummary">85 × 56 × 1.6 mm · 4 孔</strong>
-                </div>
-                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                  <span class="summary-title-row">
+                    <strong>板子尺寸与安装孔</strong>
+                    <span class="summary-meta" id="boardSummary">85 × 56 × 1.6 mm · 4 孔</span>
+                  </span>
+                </span>
+                <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
               </summary>
-              <div class="board-details-body">
+              <div class="section-body board-details-body">
                 <div class="dimension-grid">
                   <label class="field">
                     <span class="field-label">长度 <em>X</em></span>
