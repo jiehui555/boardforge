@@ -56,6 +56,14 @@ const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
+const SIDE_VIEWS = Object.freeze(['front', 'back', 'left', 'right']);
+const SIDE_VIEW_LABELS = Object.freeze({
+  front: '前视',
+  back: '后视',
+  left: '左视',
+  right: '右视',
+});
+
 const OPENING_PRESETS = Object.freeze([
   { id: 'usb-c', label: 'USB-C', shape: 'rect', width: 9, height: 3.6 },
   { id: 'usb-a', label: 'USB-A', shape: 'rect', width: 14, height: 6.5 },
@@ -161,6 +169,9 @@ const dom = {
   toastRoot: document.querySelector('#toastRoot'),
 
   viewButtons: Array.from(document.querySelectorAll('[data-view]')),
+  viewMenuButton: document.querySelector('#viewMenuButton'),
+  viewMenuLabel: document.querySelector('#viewMenuLabel'),
+  viewMenu: document.querySelector('#viewMenu'),
   projectionButton: document.querySelector('#projectionButton'),
   projectionButtonLabel: document.querySelector('#projectionButtonLabel'),
   explodeButton: document.querySelector('#explodeButton'),
@@ -214,6 +225,7 @@ function bootstrap() {
   renderOpeningPresetOptions();
   syncFormFromState();
   syncProjectionUi();
+  setActiveView(activeView);
   initializeAccordions();
   bindEvents();
   exposeDebugApi();
@@ -333,19 +345,33 @@ function handleThemeEscape(event) {
 
 /* ── Sidebar accordions ─────────────────────────────────────────────────── */
 
-function initializeAccordions() {
+function scrollAccordionIntoView(section) {
   const reducedMotion = window.matchMedia?.(
     '(prefers-reduced-motion: reduce)',
   )?.matches;
-  const scrollBehavior = reducedMotion ? 'auto' : 'smooth';
+  requestAnimationFrame(() => {
+    section.scrollIntoView({
+      block: 'start',
+      behavior: reducedMotion ? 'auto' : 'smooth',
+    });
+  });
+}
 
+function initializeAccordions() {
   for (const section of dom.accordionSections) {
     section.addEventListener('toggle', () => {
       if (!section.open) return;
       for (const other of dom.accordionSections) {
         if (other !== section && other.open) other.open = false;
       }
-      section.scrollIntoView({ block: 'start', behavior: scrollBehavior });
+    });
+
+    // The initially open section also emits a deferred toggle event during
+    // boot. Only user clicks and invalid-field reveals should scroll the page.
+    section.querySelector(':scope > summary')?.addEventListener('click', () => {
+      requestAnimationFrame(() => {
+        if (section.open) scrollAccordionIntoView(section);
+      });
     });
   }
 }
@@ -354,6 +380,7 @@ function revealAccordionFor(element) {
   const section = element?.closest?.('.accordion-section');
   if (!section || section.open) return;
   section.open = true;
+  scrollAccordionIntoView(section);
 }
 
 /* ── Form sync ──────────────────────────────────────────────────────────── */
@@ -1702,10 +1729,31 @@ function setActiveView(view) {
   dom.viewButtons.forEach((button) => {
     button.classList.toggle('active', button.dataset.view === view);
   });
+
+  const isSideView = SIDE_VIEWS.includes(view);
+  dom.viewMenuLabel.textContent = isSideView ? SIDE_VIEW_LABELS[view] : '侧视';
+  dom.viewMenuButton.classList.toggle('is-active', isSideView);
+  const actionLabel = isSideView
+    ? `当前${SIDE_VIEW_LABELS[view]}，选择其他侧视方向`
+    : '选择侧视方向';
+  dom.viewMenuButton.setAttribute('aria-label', actionLabel);
+  dom.viewMenuButton.title = actionLabel;
+}
+
+function setViewMenuOpen(open, { focusFirst = false } = {}) {
+  const next = Boolean(open);
+  dom.viewMenu.hidden = !next;
+  dom.viewMenuButton.setAttribute('aria-expanded', String(next));
+  if (next && focusFirst) {
+    const activeItem = dom.viewMenu.querySelector('.view-menu-item.active');
+    const firstItem = dom.viewMenu.querySelector('.view-menu-item');
+    requestAnimationFrame(() => (activeItem || firstItem)?.focus());
+  }
 }
 
 function requestView(view) {
   setActiveView(view);
+  setViewMenuOpen(false);
   if (preview && !previewFailed) preview.setView(view, true);
 }
 
@@ -2193,14 +2241,45 @@ function bindEvents() {
   dom.sheetExportSvgButton.addEventListener('click', exportCutSvg);
   dom.sheetExportDxfButton.addEventListener('click', exportCutDxf);
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape' && !dom.sheetModal.hidden) {
+    if (event.key !== 'Escape') return;
+    if (!dom.sheetModal.hidden) {
       event.preventDefault();
       closeSheetPreview();
+      return;
+    }
+    if (!dom.viewMenu.hidden) {
+      event.preventDefault();
+      setViewMenuOpen(false);
+      dom.viewMenuButton.focus();
     }
   });
 
   dom.viewButtons.forEach((button) => {
     button.addEventListener('click', () => requestView(button.dataset.view));
+  });
+  dom.viewMenuButton.addEventListener('click', () => {
+    setViewMenuOpen(dom.viewMenu.hidden, { focusFirst: true });
+  });
+  dom.viewMenu.addEventListener('keydown', (event) => {
+    const items = [...dom.viewMenu.querySelectorAll('.view-menu-item')];
+    const current = items.indexOf(document.activeElement);
+    let next = null;
+    if (event.key === 'ArrowDown' || event.key === 'ArrowRight') {
+      next = (current + 1) % items.length;
+    } else if (event.key === 'ArrowUp' || event.key === 'ArrowLeft') {
+      next = (current - 1 + items.length) % items.length;
+    } else if (event.key === 'Home') {
+      next = 0;
+    } else if (event.key === 'End') {
+      next = items.length - 1;
+    }
+    if (next === null) return;
+    event.preventDefault();
+    items[next]?.focus();
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (dom.viewMenu.hidden) return;
+    if (!event.target.closest('.view-switch')) setViewMenuOpen(false);
   });
   dom.projectionButton.addEventListener('click', toggleProjection);
   dom.explodeButton.addEventListener('click', toggleExploded);

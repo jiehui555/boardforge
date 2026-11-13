@@ -439,10 +439,32 @@
               <div class="view-switch" role="group" aria-label="视角">
                 <button type="button" data-view="iso" class="active">立体</button>
                 <button type="button" data-view="top">顶视</button>
-                <button type="button" data-view="front" title="从前面板观察，适合设置前侧开孔">前视</button>
-                <button type="button" data-view="back" title="从后面板观察，适合设置后侧开孔">后视</button>
-                <button type="button" data-view="left" title="从左面板观察，适合设置左侧开孔">左视</button>
-                <button type="button" data-view="right" title="从右面板观察，适合设置右侧开孔">右视</button>
+                <div class="view-menu-wrap">
+                  <button class="view-menu-button" id="viewMenuButton" type="button"
+                    aria-haspopup="menu" aria-expanded="false" aria-controls="viewMenu"
+                    aria-label="选择侧视方向">
+                    <span id="viewMenuLabel">侧视</span>
+                    <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                  </button>
+                  <div class="view-menu" id="viewMenu" role="menu" aria-label="侧视方向" hidden>
+                    <button class="view-menu-item" type="button" role="menuitem" data-view="front">
+                      <span>前视</span>
+                      <small>前面板</small>
+                    </button>
+                    <button class="view-menu-item" type="button" role="menuitem" data-view="back">
+                      <span>后视</span>
+                      <small>后面板</small>
+                    </button>
+                    <button class="view-menu-item" type="button" role="menuitem" data-view="left">
+                      <span>左视</span>
+                      <small>左面板</small>
+                    </button>
+                    <button class="view-menu-item" type="button" role="menuitem" data-view="right">
+                      <span>右视</span>
+                      <small>右面板</small>
+                    </button>
+                  </div>
+                </div>
               </div>
               <button class="projection-button" id="projectionButton" type="button" aria-pressed="false" title="切换到正交投影" aria-label="切换到正交投影">
                 <svg class="projection-icon projection-icon-perspective" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h15l-2.5 9H5z" /></svg>

@@ -89,6 +89,17 @@ async function openAccordion(name) {
   }
 }
 
+async function selectView(view) {
+  if (['front', 'back', 'left', 'right'].includes(view)) {
+    if ((await page.locator('#viewMenuButton').getAttribute('aria-expanded')) !== 'true') {
+      await page.locator('#viewMenuButton').click();
+    }
+    await page.locator(`#viewMenu [data-view="${view}"]`).click();
+  } else {
+    await page.locator(`.view-switch > button[data-view="${view}"]`).click();
+  }
+}
+
 async function download(selector, destination) {
   await page.locator(selector).scrollIntoViewIfNeeded();
   await page.waitForTimeout(120);
@@ -227,8 +238,29 @@ try {
     right: [1, 0, 0],
   };
   ok((await page.locator('[data-view]').count()) === 6, 'all six view presets are available');
+  ok(
+    (await page.locator('.view-switch > button[data-view]').count()) === 2,
+    'only 3D and top view stay as primary buttons',
+  );
+  ok(
+    (await page.locator('#viewMenu .view-menu-item').count()) === 4,
+    'four side views are grouped into one menu',
+  );
+  await page.locator('#viewMenuButton').click();
+  ok(await page.locator('#viewMenu').isVisible(), 'side view menu opens');
+  ok(
+    (await page.locator('#viewMenuButton').getAttribute('aria-expanded')) === 'true',
+    'side view menu exposes its expanded state',
+  );
+  await page.keyboard.press('Escape');
+  ok(await page.locator('#viewMenu').isHidden(), 'Escape closes the side view menu');
+  ok(
+    (await page.evaluate(() => document.activeElement?.id)) === 'viewMenuButton',
+    'closing the side view menu restores focus to its button',
+  );
+
   for (const [side, expected] of Object.entries(sideViews)) {
-    await page.locator(`[data-view="${side}"]`).click();
+    await selectView(side);
     await page.waitForTimeout(760);
     const camera = await page.evaluate(() => window.boardForge.getCamera());
     ok(camera.view === side, `${side} view becomes active`);
@@ -236,12 +268,17 @@ try {
       camera.direction.every((value, index) => Math.abs(value - expected[index]) < 0.02),
       `${side} view is perpendicular to its panel`,
     );
+    ok(await page.locator('#viewMenu').isHidden(), `${side} selection closes the side view menu`);
   }
+  ok(
+    (await page.locator('#viewMenuLabel').textContent()) === '右视',
+    'side view button shows the active side view',
+  );
 
   // An opposite side view travels around the model instead of passing through it.
-  await page.locator('[data-view="front"]').click();
+  await selectView('front');
   await page.waitForTimeout(760);
-  await page.locator('[data-view="back"]').click();
+  await selectView('back');
   await page.waitForTimeout(250);
   const arcMidpoint = await page.evaluate(() => window.boardForge.getCamera());
   ok(
@@ -253,8 +290,12 @@ try {
   const backView = await page.evaluate(() => window.boardForge.getCamera());
   ok(backView.direction[1] > 0.98, 'front-to-back transition ends on the back view');
 
-  await page.locator('[data-view="iso"]').click();
+  await selectView('iso');
   await page.waitForTimeout(760);
+  ok(
+    (await page.locator('#viewMenuLabel').textContent()) === '侧视',
+    'side view button returns to a neutral label in 3D view',
+  );
 
   // Theme and mode controls remain available in the enclosure-first UI.
   await page.locator('#themeButton').click();
@@ -390,6 +431,10 @@ try {
     (await page.locator('[data-opening-side="left"]').getAttribute('aria-selected')) === 'true',
     '2D editor follows an opening moved to the left panel',
   );
+  ok(
+    (await page.locator('#viewMenuLabel').textContent()) === '左视',
+    'selecting a side panel updates the compact view menu label',
+  );
   card = page.locator('.opening-card').first();
   await card.locator('[data-opening-field="shape"]').selectOption('circle');
   await waitIdle();
@@ -400,6 +445,10 @@ try {
 
   // Add a common connector preset on the front panel.
   await page.locator('[data-opening-side="front"]').click();
+  ok(
+    (await page.locator('#viewMenuLabel').textContent()) === '前视',
+    'returning to the front panel updates the compact view label',
+  );
   await page.locator('#openingPresetSelect').selectOption('usb-c');
   await page.locator('#addPresetOpeningButton').click();
   await waitIdle();
@@ -458,7 +507,7 @@ try {
   await waitIdle();
 
   // Exploded view.
-  await page.locator('[data-view="iso"]').click();
+  await selectView('iso');
   await page.waitForTimeout(700);
   await page.locator('#explodeButton').click();
   await page.waitForTimeout(650);
@@ -593,10 +642,13 @@ try {
   });
   await mobile.goto(appUrl, { waitUntil: 'load' });
   await mobile.waitForFunction(() => window.boardForge?.getDiagnostics(), { timeout: 30_000 });
-  const noOverflow = await mobile.evaluate(
-    () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
-  );
-  ok(noOverflow, 'mobile layout has no horizontal overflow');
+  const mobileInitial = await mobile.evaluate(() => ({
+    noOverflow:
+      document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    scrollY: window.scrollY,
+  }));
+  ok(mobileInitial.noOverflow, 'mobile layout has no horizontal overflow');
+  ok(mobileInitial.scrollY === 0, 'mobile page opens at the 3D preview without auto-scrolling');
   await mobile.screenshot({ path: join(screenshots, 'case-mobile.png') });
 
   await mobile.locator('#modeButton').click();
