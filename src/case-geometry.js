@@ -1,6 +1,5 @@
 import * as THREE from 'three';
 import { buildBoardModel } from './board-geometry.js';
-import { roundedRectDistance } from './schema.js';
 import {
   SIDE_LABELS,
   deriveCaseDimensions,
@@ -529,26 +528,6 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
   const outerD = dims.outerDepth;
   const warnings = [];
 
-  const postInset = t + 4.2;
-  const postRadius = 2.8;
-  const postX = outerW / 2 - postInset;
-  const postY = outerD / 2 - postInset;
-  const postPositions = [
-    { x: -postX, y: -postY },
-    { x: postX, y: -postY },
-    { x: postX, y: postY },
-    { x: -postX, y: postY },
-  ];
-  const screwRadius = state.enclosure.screw_clearance / 2;
-  const cornerScrewHoles = postPositions.map((position) =>
-    panelHoleAtPoint(
-      position.x + outerW / 2,
-      position.y + outerD / 2,
-      state.enclosure.screw_clearance,
-      'case-screw',
-    ),
-  );
-
   const frontPanel = sideData.panels.find((panel) => panel.id === 'front');
   const backPanel = sideData.panels.find((panel) => panel.id === 'back');
   const leftPanel = sideData.panels.find((panel) => panel.id === 'left');
@@ -587,10 +566,7 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
       label: '底板',
       role: 'bottom',
       z: 0,
-      extraHoles: [
-        ...cornerScrewHoles,
-        ...panelHoles.bottom,
-      ],
+      extraHoles: panelHoles.bottom,
       explosion: [0, 0, -1],
     },
     {
@@ -598,7 +574,7 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
       label: '顶板',
       role: 'top',
       z: dims.outerHeight - t,
-      extraHoles: cornerScrewHoles,
+      extraHoles: panelHoles.top,
       explosion: [0, 0, 1],
     },
   ];
@@ -606,7 +582,7 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
   const panels = panelMakers.map((maker) => {
     const outline = buildRectilinearOutline(outerW, outerD, bottomEdges);
     const blocked = maker.extraHoles
-      .filter((hole) => hole.type === 'case-screw' || hole.type === 'board-mount')
+      .filter((hole) => hole.type === 'column-screw')
       .map((hole) => hole.bounds);
     const ventHoles = buildVentHoles(state, dims, outerW, outerD, blocked, warnings);
     const holes = [...maker.extraHoles, ...ventHoles];
@@ -623,34 +599,25 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
     };
   });
 
-  return { panels, postPositions, postRadius, screwRadius, warnings };
+  return { panels, warnings };
 }
 
-function buildBoardMounts(state, dims) {
+function buildBoardMounts(state) {
   const mounts = validBoardMountHoles(state);
-  return mounts.map((hole) => {
-    const diameter = Math.max(2.9, hole.diameter + 0.3);
-    return {
-      x: hole.x,
-      y: hole.y,
-      diameter,
-      standoffRadius: Math.max(2.1, diameter / 2 + 0.9),
-      boardHoleIndex: hole.index,
-    };
-  });
+  const panelHoleDiameter = state.enclosure.screw_clearance;
+  return mounts.map((hole) => ({
+    x: hole.x,
+    y: hole.y,
+    diameter: panelHoleDiameter,
+    boardHoleDiameter: hole.diameter,
+    standoffRadius: Math.max(2.3, panelHoleDiameter / 2 + 1.4),
+    boardHoleIndex: hole.index,
+  }));
 }
 
-function buildHardware(state, dims, topData, mounts) {
+function buildHardware(dims, mounts) {
   const t = dims.panelThickness;
-  const postHeight = dims.innerHeight;
-  const posts = topData.postPositions.map((position) => ({
-    x: position.x,
-    y: position.y,
-    z: t + postHeight / 2,
-    radius: topData.postRadius,
-    height: postHeight,
-  }));
-  const boardStandoffs = mounts
+  const lowerStandoffs = mounts
     .filter(() => dims.bottomGap > 0)
     .map((mount) => ({
       x: mount.x,
@@ -659,24 +626,24 @@ function buildHardware(state, dims, topData, mounts) {
       radius: mount.standoffRadius,
       height: dims.bottomGap,
     }));
+  const upperStandoffs = mounts
+    .filter(() => dims.topGap > 0)
+    .map((mount) => ({
+      x: mount.x,
+      y: mount.y,
+      z: dims.boardTopZ + dims.topGap / 2,
+      radius: mount.standoffRadius,
+      height: dims.topGap,
+    }));
   const screwHeads = [];
-  for (const position of topData.postPositions) {
-    screwHeads.push({
-      x: position.x,
-      y: position.y,
-      z: dims.outerHeight + 0.6,
-      radius: topData.screwRadius * 1.75,
-      height: 1.2,
-    });
-    screwHeads.push({
-      x: position.x,
-      y: position.y,
-      z: -0.6,
-      radius: topData.screwRadius * 1.75,
-      height: 1.2,
-    });
-  }
   for (const mount of mounts) {
+    screwHeads.push({
+      x: mount.x,
+      y: mount.y,
+      z: dims.outerHeight + 0.6,
+      radius: mount.diameter / 2 + 1.2,
+      height: 1.2,
+    });
     screwHeads.push({
       x: mount.x,
       y: mount.y,
@@ -685,7 +652,7 @@ function buildHardware(state, dims, topData, mounts) {
       height: 1.2,
     });
   }
-  return { posts, boardStandoffs, screwHeads };
+  return { lowerStandoffs, upperStandoffs, screwHeads };
 }
 
 /**
@@ -698,20 +665,19 @@ export function buildCaseModel(state, options = {}) {
   const sideData = buildSidePanels(state, dims, warnings);
   const panels = [...sideData.panels];
 
-  const mounts = buildBoardMounts(state, dims);
-
-  const bottomMountHoles = mounts.map((mount) =>
+  const mounts = buildBoardMounts(state);
+  const columnHoles = mounts.map((mount) =>
     panelHoleAtPoint(
       mount.x + dims.outerWidth / 2,
       mount.y + dims.outerDepth / 2,
       mount.diameter,
-      'board-mount',
+      'column-screw',
     ),
   );
 
   const topData = buildTopBottomPanels(state, dims, sideData, {
-    bottom: bottomMountHoles,
-    top: [],
+    bottom: columnHoles,
+    top: columnHoles,
   });
   warnings.push(...topData.warnings);
   panels.push(...topData.panels);
@@ -734,27 +700,13 @@ export function buildCaseModel(state, options = {}) {
   const boardModel = buildBoardModel(state);
   warnings.push(...boardModel.warnings);
   if (mounts.length === 0) {
-    warnings.push('开发板没有有效安装孔，外壳未生成板子固定柱。');
+    warnings.push('开发板没有有效安装孔，无法生成一体固定柱和顶/底螺丝。');
+  } else if (mounts.length < 3) {
+    warnings.push('有效固定柱少于 3 组，外壳固定可能不稳定。');
   }
 
-  const postBoardCollision = topData.postPositions.some(
-    (position) =>
-      roundedRectDistance(
-        position.x,
-        position.y,
-        dims.boardLength,
-        dims.boardWidth,
-        dims.boardCornerRadius,
-      ) <
-      topData.postRadius + 0.8,
-  );
-  if (postBoardCollision) {
-    warnings.push('M3 角柱可能与开发板角部冲突，请增大板边间隙或板子圆角。');
-  }
-
-  const hardware = buildHardware(state, dims, topData, mounts);
+  const hardware = buildHardware(dims, mounts);
   const triangleCount = panels.reduce((total, panel) => total + panel.triangleCount, 0);
-  const postCount = hardware.posts.length;
 
   return {
     dimensions: dims,
@@ -766,13 +718,12 @@ export function buildCaseModel(state, options = {}) {
       analysis: boardModel.analysis,
     },
     hardware,
-    postPositions: topData.postPositions,
     mounts,
     warnings,
     triangleCount,
     buildMs: performance.now() - started,
     panelCount: panels.length,
-    postCount,
+    columnCount: mounts.length,
     construction: 'panels',
     sideData,
   };
@@ -865,12 +816,7 @@ function hardwareCylinder(radius, height, x, y, z, segments = 24) {
  */
 export function buildAssemblyGeometry(model) {
   const parts = model.panels.map((panel) => panel.geometry.clone());
-  for (const post of model.hardware.posts) {
-    parts.push(
-      hardwareCylinder(post.radius, post.height, post.x, post.y, post.z, 6),
-    );
-  }
-  for (const standoff of model.hardware.boardStandoffs) {
+  for (const standoff of model.hardware.lowerStandoffs) {
     parts.push(
       hardwareCylinder(
         standoff.radius,
@@ -878,7 +824,19 @@ export function buildAssemblyGeometry(model) {
         standoff.x,
         standoff.y,
         standoff.z,
-        24,
+        6,
+      ),
+    );
+  }
+  for (const standoff of model.hardware.upperStandoffs) {
+    parts.push(
+      hardwareCylinder(
+        standoff.radius,
+        standoff.height,
+        standoff.x,
+        standoff.y,
+        standoff.z,
+        6,
       ),
     );
   }

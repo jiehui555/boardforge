@@ -65,6 +65,7 @@ const dom = {
   ventWidthInput: document.querySelector('#ventWidthInput'),
   ventLengthInput: document.querySelector('#ventLengthInput'),
   ventFields: document.querySelector('#ventFields'),
+  hardwareNote: document.querySelector('#hardwareNote'),
   outerDimensions: document.querySelector('#outerDimensions'),
   innerHeight: document.querySelector('#innerHeight'),
   enclosureNote: document.querySelector('#enclosureNote'),
@@ -343,7 +344,40 @@ function updateDerivedUi() {
     `${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} × ` +
     `${formatNumber(state.board.thickness)} mm · ${state.holes.length} 孔`;
   dom.holeCount.textContent = `${state.holes.length} / ${MAX_HOLES}`;
+  updateHardwareNote();
   updateFilenameUi();
+}
+
+function updateHardwareNote() {
+  const clearance = Number(state.enclosure.screw_clearance);
+  const analysis = analyseHoles(state);
+  const usable = analysis.printable;
+
+  if (state.holes.length === 0) {
+    dom.hardwareNote.textContent =
+      '开发板没有安装孔，无法生成一体固定柱和顶/底面板螺丝。';
+    dom.hardwareNote.classList.add('is-warning');
+    return;
+  }
+  if (usable.length === 0) {
+    dom.hardwareNote.textContent =
+      '没有可用的开发板安装孔，无法生成固定柱；请修正板孔位置。';
+    dom.hardwareNote.classList.add('is-warning');
+    return;
+  }
+
+  const smallest = Math.min(...usable.map((hole) => hole.diameter));
+  if (clearance - smallest > 0.4) {
+    dom.hardwareNote.textContent =
+      `板孔最小 ${formatNumber(smallest)} mm，小于 ${formatNumber(clearance)} mm ` +
+      `固定柱过孔；请扩孔或将过孔改为约 ${formatNumber(smallest + 0.2)} mm。`;
+    dom.hardwareNote.classList.add('is-warning');
+    return;
+  }
+
+  dom.hardwareNote.textContent =
+    `${usable.length} 组固定柱穿过开发板孔位，上下锁紧顶板与底板。`;
+  dom.hardwareNote.classList.remove('is-warning');
 }
 
 function updateVentUi() {
@@ -1012,7 +1046,7 @@ function updateModelUi(result) {
     `${formatNumber(dims.innerWidth)} × ${formatNumber(dims.innerDepth)} × ` +
     `${formatNumber(dims.innerHeight)} mm`;
   dom.statMaterial.textContent =
-    `${formatNumber(dims.panelThickness)} mm · M3 角柱`;
+    `${formatNumber(dims.panelThickness)} mm · ${result.columnCount} 组固定柱`;
   dom.statTime.textContent = `${Math.round(result.buildMs)} ms`;
 
   if (result.warnings.length > 0) {
@@ -1612,8 +1646,16 @@ function exposeDebugApi() {
                 holes: panel.holes.length,
                 outlinePoints: panel.outline.length,
               })),
-              postCount: model.postCount,
+              columnCount: model.columnCount,
               mountCount: model.mounts.length,
+              lowerStandoffCount: model.hardware.lowerStandoffs.length,
+              upperStandoffCount: model.hardware.upperStandoffs.length,
+              columns: model.mounts.map((mount) => ({
+                x: mount.x,
+                y: mount.y,
+                panelHoleDiameter: mount.diameter,
+                boardHoleDiameter: mount.boardHoleDiameter,
+              })),
               triangleCount: model.triangleCount,
               buildMs: model.buildMs,
               warnings: model.warnings,

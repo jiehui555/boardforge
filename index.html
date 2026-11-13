@@ -123,7 +123,7 @@
               <div class="preset-row" id="presetRow" aria-label="常用开发板预设"></div>
               <div class="project-tags">
                 <span>六面板榫卯</span>
-                <span>M3 五金</span>
+                <span>一体固定柱</span>
                 <span>激光切割</span>
               </div>
             </section>
@@ -185,14 +185,14 @@
               <div class="section-heading">
                 <div>
                   <span class="eyebrow"><span class="step">02</span> 固定与散热</span>
-                  <h2>M3 角柱与通风槽</h2>
+                  <h2>一体固定柱与通风槽</h2>
                 </div>
-                <span class="section-unit">M3</span>
+                <span class="section-unit">五金</span>
               </div>
 
               <div class="dimension-grid compact-grid">
                 <label class="field">
-                  <span class="field-label">M3 通孔</span>
+                  <span class="field-label">固定柱过孔</span>
                   <span class="input-shell">
                     <input id="screwClearanceInput" data-case="screw_clearance" type="number" min="2" max="8" step="0.1" inputmode="decimal" value="3.4" />
                     <span class="unit">mm</span>
@@ -206,6 +206,7 @@
                   </span>
                 </label>
               </div>
+              <p class="field-note" id="hardwareNote">上下两段固定柱在开发板孔位处对接，同时锁紧顶板和底板。</p>
 
               <label class="switch-row">
                 <span class="switch-copy">
@@ -338,7 +339,7 @@
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                 </summary>
                 <div class="info-body">
-                  <p>六块亚克力板通过榫舌/榫槽互锁，四角使用 M3 螺柱连接顶板和底板；开发板由底部铜柱悬空固定。</p>
+                  <p>六块亚克力板通过榫舌/榫槽互锁。开发板安装孔位上下各有一段固定柱，把顶板、开发板和底板串成同一组固定结构。</p>
                   <p>开孔坐标以侧板中心为原点，U 为水平方向，V 为垂直方向。侧板开孔超出可加工区域时会自动跳过并提示。</p>
                   <p>DXF/SVG 为毫米单位激光切割路径，未包含激光补偿；STL 是装配预览，不是单块可打印实体。</p>
                   <p>板子颜色只影响 3D 参考模型，不进入切割文件。</p>

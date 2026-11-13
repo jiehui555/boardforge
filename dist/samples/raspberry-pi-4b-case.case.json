@@ -37,7 +37,7 @@
     "clearance": 6,
     "bottom_gap": 8,
     "top_gap": 20,
-    "screw_clearance": 3.4,
+    "screw_clearance": 2.9,
     "fit": 0.15,
     "vent": {
       "enabled": true,

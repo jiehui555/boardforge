@@ -64,6 +64,9 @@ raspberry.openings = [
   },
 ];
 raspberry.enclosure.vent.slot_length = 30;
+// Raspberry Pi mounting holes are 2.7 mm, so the integrated columns use M2.5
+// clearance rather than the M3 default.
+raspberry.enclosure.screw_clearance = 2.9;
 
 const sensor = createCaseFromPreset({
   name: 'Sensor Node 60×40',

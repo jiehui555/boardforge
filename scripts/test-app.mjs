@@ -130,8 +130,10 @@ try {
   ok(initial.state.format === 'boardforge-case', 'default document uses boardforge-case format');
   ok(initial.state.enclosure.panel_thickness === 3, 'default acrylic is 3 mm');
   ok(initial.diagnostics.panelCount === 6, 'six panels are generated');
-  ok(initial.diagnostics.postCount === 4, 'four M3 corner posts are generated');
-  ok(initial.diagnostics.mountCount === 4, 'four board standoffs are generated');
+  ok(initial.diagnostics.columnCount === 4, 'four integrated columns are generated');
+  ok(initial.diagnostics.mountCount === 4, 'four board mount positions are used');
+  ok(initial.diagnostics.lowerStandoffCount === 4, 'four lower standoffs are generated');
+  ok(initial.diagnostics.upperStandoffCount === 4, 'four upper standoffs are generated');
   ok(initial.diagnostics.warnings.length === 0, 'default enclosure has no warnings');
   ok(initial.diagnostics.outer.width === 103, 'default outer width is 103 mm');
   ok(initial.diagnostics.outer.depth === 74, 'default outer depth is 74 mm');
@@ -139,6 +141,20 @@ try {
   ok(initial.diagnostics.boardWatertight, 'board reference remains watertight');
   ok((await page.locator('#modelStatusText').textContent()).includes('6 面板'), 'status reports six panels');
   ok((await page.evaluate(() => window.boardForge.getMode())) === 'dark', 'default mode is dark');
+  ok(
+    (await page.locator('#hardwareNote').textContent()).includes('固定柱'),
+    'hardware note explains integrated standoff columns',
+  );
+
+  // A smaller clearance removes the board-hole compatibility warning.
+  await page.locator('#screwClearanceInput').fill('2.9');
+  await waitIdle();
+  ok(
+    !(await page.locator('#hardwareNote').getAttribute('class')).includes('is-warning'),
+    'compatible screw clearance clears the hardware warning',
+  );
+  await page.locator('#screwClearanceInput').fill('3.4');
+  await waitIdle();
 
   await page.screenshot({ path: join(screenshots, 'case-default.png') });
 

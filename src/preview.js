@@ -107,11 +107,6 @@ export class BoardPreview {
       roughness: 0.36,
       metalness: 0.7,
     });
-    this.copperMaterial = new THREE.MeshStandardMaterial({
-      color: 0xb9773f,
-      roughness: 0.4,
-      metalness: 0.65,
-    });
 
     this.assemblyGroup = new THREE.Group();
     this.scene.add(this.assemblyGroup);
@@ -236,19 +231,19 @@ export class BoardPreview {
     this.boardMesh.receiveShadow = true;
     this.boardGroup.add(this.boardMesh);
 
-    for (const post of model.hardware.posts) {
+    for (const standoff of model.hardware.lowerStandoffs) {
       const mesh = new THREE.Mesh(
-        makeCylinder(post.radius, post.height, post.x, post.y, post.z, 6),
+        makeCylinder(standoff.radius, standoff.height, standoff.x, standoff.y, standoff.z, 6),
         this.brassMaterial,
       );
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.hardwareGroup.add(mesh);
     }
-    for (const standoff of model.hardware.boardStandoffs) {
+    for (const standoff of model.hardware.upperStandoffs) {
       const mesh = new THREE.Mesh(
-        makeCylinder(standoff.radius, standoff.height, standoff.x, standoff.y, standoff.z, 24),
-        this.copperMaterial,
+        makeCylinder(standoff.radius, standoff.height, standoff.x, standoff.y, standoff.z, 6),
+        this.brassMaterial,
       );
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -414,7 +409,6 @@ export class BoardPreview {
     this.boardMaterial.dispose();
     this.steelMaterial.dispose();
     this.brassMaterial.dispose();
-    this.copperMaterial.dispose();
     this.grid.geometry.dispose();
     this.grid.material.dispose();
     this.shadowPlane.geometry.dispose();

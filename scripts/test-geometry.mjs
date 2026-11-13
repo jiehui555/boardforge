@@ -96,8 +96,11 @@ ok(normalizedOpening.state.openings.length === 1, 'openings survive JSON round-t
 // Build complete six-panel model.
 const model = buildCaseModel(defaults);
 ok(model.panelCount === 6, 'enclosure has six acrylic panels');
-ok(model.postCount === 4, 'enclosure has four M3 corner posts');
-ok(model.mounts.length === 4, 'board mounting holes generate four standoffs');
+ok(model.columnCount === 4, 'enclosure has four integrated mounting columns');
+ok(model.mounts.length === 4, 'board mounting holes generate four integrated columns');
+ok(model.hardware.lowerStandoffs.length === 4, 'each column has a lower standoff');
+ok(model.hardware.upperStandoffs.length === 4, 'each column has an upper standoff');
+ok(model.hardware.screwHeads.length === 8, 'each column has top and bottom panel screws');
 ok(model.board.diagnostics.watertight, 'board reference remains watertight');
 ok(model.warnings.length === 0, 'default enclosure builds without warnings');
 ok(
@@ -152,13 +155,14 @@ const noVentModel = buildCaseModel(noVentState);
 const noVentTop = noVentModel.panels.find((panel) => panel.id === 'top');
 ok(noVentTop.holes.length < top.holes.length, 'disabling vents removes top-panel slots');
 
-// Tight clearance detects a corner-post/board collision.
-const tightState = createDefaultCaseState();
-tightState.enclosure.clearance = 1;
-const tightModel = buildCaseModel(tightState);
+// A board without mounting holes cannot generate integrated columns.
+const noMountState = createDefaultCaseState();
+noMountState.holes = [];
+const noMountModel = buildCaseModel(noMountState);
+ok(noMountModel.columnCount === 0, 'no board holes means no integrated columns');
 ok(
-  tightModel.warnings.some((warning) => warning.includes('角柱')),
-  'tight clearance warns about corner-post collision',
+  noMountModel.warnings.some((warning) => warning.includes('安装孔')),
+  'no board holes produces an explicit warning',
 );
 
 // Presets.
@@ -205,8 +209,8 @@ for (const panel of model.panels) panel.geometry.dispose();
 model.board.geometry.dispose();
 for (const panel of noVentModel.panels) panel.geometry.dispose();
 noVentModel.board.geometry.dispose();
-for (const panel of tightModel.panels) panel.geometry.dispose();
-tightModel.board.geometry.dispose();
+for (const panel of noMountModel.panels) panel.geometry.dispose();
+noMountModel.board.geometry.dispose();
 for (const panel of openingModel.panels) panel.geometry.dispose();
 openingModel.board.geometry.dispose();
 for (const panel of badOpeningModel.panels) panel.geometry.dispose();

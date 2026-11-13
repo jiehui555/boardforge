@@ -41,7 +41,7 @@ BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三�
     "clearance": 6,
     "bottom_gap": 8,
     "top_gap": 20,
-    "screw_clearance": 3.4,
+    "screw_clearance": 2.9,
     "fit": 0.15,
     "vent": {
       "enabled": true,
@@ -111,9 +111,9 @@ BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三�
 | --- | ---: | --- | --- |
 | `panel_thickness` | 3 mm | 1–10 | 亚克力板厚度 |
 | `clearance` | 6 mm | 1–60 | 板边到内壁的间隙 |
-| `bottom_gap` | 8 mm | 0–100 | 板子离底板的铜柱高度 |
-| `top_gap` | 20 mm | 2–180 | 板上方净空 |
-| `screw_clearance` | 3.4 mm | 2–8 | M3 过孔直径 |
+| `bottom_gap` | 8 mm | 0–100 | 底板到板底面的下固定柱长度 |
+| `top_gap` | 20 mm | 2–180 | 板顶面到顶板内侧的上固定柱长度 |
+| `screw_clearance` | 3.4 mm | 2–8 | 顶/底板和一体固定柱的螺丝过孔直径 |
 | `fit` | 0.15 mm | 0–0.8 | 榫舌/榫槽配合间隙 |
 | `vent.enabled` | true | boolean | 是否生成通风槽 |
 | `vent.count` | 5 | 1–14 | 槽数量 |
@@ -130,6 +130,17 @@ outerWidth  = innerWidth  + 2 × panel_thickness
 outerDepth  = innerDepth  + 2 × panel_thickness
 outerHeight = innerHeight + 2 × panel_thickness
 ```
+
+### 一体固定柱
+
+每个有效板孔都会生成一组上下固定柱：
+
+- 下柱从底板上表面延伸到开发板底面，长度等于 `bottom_gap`；
+- 上柱从开发板顶面延伸到顶板内表面，长度等于 `top_gap`；
+- 顶板和底板在相同 X/Y 位置开 `screw_clearance` 过孔；
+- 上下各一颗螺丝把顶板、板子、底板锁成同一组结构。
+
+因此，`holes[].diameter` 必须能容纳实际螺丝/螺柱。若板孔明显小于 `screw_clearance`，界面会提示扩孔或减小过孔尺寸。没有有效板孔时不会生成固定柱，并会给出警告。
 
 ### 侧板开孔
 
