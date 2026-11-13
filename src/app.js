@@ -52,6 +52,7 @@ const STORAGE_KEY = 'boardforge.case-autosave.v2';
 const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
 const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
+const AUTOSAVE_ENABLED_STORAGE_KEY = 'boardforge.autosave-enabled.v1';
 const PROJECTS_STORAGE_KEY = 'boardforge.projects.v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'boardforge.active-project.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
@@ -126,16 +127,22 @@ const dom = {
   holeNote: document.querySelector('#holeNote'),
   addHoleButton: document.querySelector('#addHoleButton'),
 
-  modeButton: document.querySelector('#modeButton'),
-  modeButtonLabel: document.querySelector('#modeButtonLabel'),
-  themeButton: document.querySelector('#themeButton'),
-  themeMenu: document.querySelector('#themeMenu'),
+  settingsButton: document.querySelector('#settingsButton'),
+  settingsModal: document.querySelector('#settingsModal'),
+  settingsCloseButton: document.querySelector('#settingsCloseButton'),
+  settingsDoneButton: document.querySelector('#settingsDoneButton'),
+  settingsModeGroup: document.querySelector('#settingsModeGroup'),
+  settingsProjectionGroup: document.querySelector('#settingsProjectionGroup'),
+  settingsModeButtons: Array.from(document.querySelectorAll('[data-mode][role="radio"]')),
+  settingsProjectionButtons: Array.from(
+    document.querySelectorAll('[data-projection][role="radio"]'),
+  ),
+  resetSettingsButton: document.querySelector('#resetSettingsButton'),
+  autosaveToggle: document.querySelector('#autosaveToggle'),
   themePresets: document.querySelector('#themePresets'),
   themeColorInput: document.querySelector('#themeColorInput'),
   themeColorHex: document.querySelector('#themeColorHex'),
   themeColorPreview: document.querySelector('#themeColorPreview'),
-  themeCloseButton: document.querySelector('#themeCloseButton'),
-  resetThemeButton: document.querySelector('#resetThemeButton'),
 
   saveProjectButton: document.querySelector('#saveProjectButton'),
   projectsButton: document.querySelector('#projectsButton'),
@@ -219,6 +226,7 @@ let dragDepth = 0;
 let activeView = 'iso';
 let exploded = false;
 let currentProjection = readProjectionMode();
+let autosaveEnabled = true;
 let activeOpeningSide = 'front';
 let selectedOpeningIndex = null;
 let openingDrag = null;
@@ -226,6 +234,7 @@ let currentBomText = '';
 let sheetReturnFocus = null;
 let projectReturnFocus = null;
 let pendingProjectAction = null;
+let settingsReturnFocus = null;
 let safeProjectSignatures = null;
 let activeProjectId = null;
 let launcherReturnFocus = null;
@@ -238,12 +247,13 @@ const pendingInvalid = new Set();
 bootstrap();
 
 function bootstrap() {
+  autosaveEnabled = readAutosaveEnabled();
   initializeTheme();
-  const restored = readStoredState();
+  const restored = autosaveEnabled ? readStoredState() : null;
   if (restored) {
     state = restored.state;
   }
-  activeProjectId = readActiveProjectId();
+  activeProjectId = autosaveEnabled ? readActiveProjectId() : null;
   selectedPresetId = detectPresetId(state);
 
   renderPresets();
@@ -251,6 +261,7 @@ function bootstrap() {
   renderOpeningPresetOptions();
   syncFormFromState();
   syncProjectionUi();
+  syncAutosaveUi();
   setActiveView(activeView);
   initializeAccordions();
   bindEvents();
@@ -330,40 +341,45 @@ function setThemeMode(value, { persist = true } = {}) {
 }
 
 function syncModeUi() {
-  const isDark = currentMode === 'dark';
-  const actionLabel = isDark ? '切换到浅色模式' : '切换到深色模式';
-  dom.modeButton.setAttribute('title', actionLabel);
-  dom.modeButton.setAttribute('aria-label', actionLabel);
-  dom.modeButtonLabel.textContent = isDark ? '深色' : '浅色';
+  dom.settingsModeButtons.forEach((button) => {
+    const active = button.dataset.mode === currentMode;
+    button.setAttribute('aria-checked', String(active));
+    button.classList.toggle('active', active);
+  });
 }
 
-function setThemeMenuOpen(open) {
-  dom.themeMenu.hidden = !open;
-  dom.themeButton.setAttribute('aria-expanded', String(open));
-  if (open) {
-    document.addEventListener('pointerdown', handleThemeOutsidePointer, true);
-    document.addEventListener('keydown', handleThemeEscape);
-  } else {
-    document.removeEventListener('pointerdown', handleThemeOutsidePointer, true);
-    document.removeEventListener('keydown', handleThemeEscape);
-  }
+function openSettings() {
+  settingsReturnFocus = document.activeElement;
+  dom.settingsModal.hidden = false;
+  dom.settingsModal.setAttribute('aria-hidden', 'false');
+  dom.settingsButton.setAttribute('aria-expanded', 'true');
+  document.body.classList.add('settings-open');
+  syncSettingsUi();
+  dom.settingsDoneButton.focus();
 }
 
-function handleThemeOutsidePointer(event) {
-  if (
-    dom.themeMenu.contains(event.target) ||
-    dom.themeButton.contains(event.target)
-  ) {
-    return;
-  }
-  setThemeMenuOpen(false);
+function closeSettings({ restoreFocus = true } = {}) {
+  if (dom.settingsModal.hidden) return;
+  dom.settingsModal.hidden = true;
+  dom.settingsModal.setAttribute('aria-hidden', 'true');
+  dom.settingsButton.setAttribute('aria-expanded', 'false');
+  document.body.classList.remove('settings-open');
+  if (restoreFocus && settingsReturnFocus?.focus) settingsReturnFocus.focus();
+  settingsReturnFocus = null;
 }
 
-function handleThemeEscape(event) {
-  if (event.key === 'Escape') {
-    setThemeMenuOpen(false);
-    dom.themeButton.focus();
-  }
+function syncSettingsUi() {
+  syncModeUi();
+  syncProjectionUi();
+  syncAutosaveUi();
+}
+
+function resetSettings() {
+  resetTheme();
+  setThemeMode(DEFAULT_THEME_MODE);
+  setProjection('perspective');
+  setAutosaveEnabled(true);
+  toast('设置已恢复默认', '深色 · 默认主题色 · 透视投影 · 自动保存开启');
 }
 
 /* ── Sidebar accordions ─────────────────────────────────────────────────── */
@@ -2209,11 +2225,15 @@ function syncProjectionUi() {
   dom.projectionButton.title = actionLabel;
   dom.projectionButton.setAttribute('aria-label', actionLabel);
   dom.projectionButtonLabel.textContent = orthographic ? '正交' : '透视';
+  dom.settingsProjectionButtons.forEach((button) => {
+    const active = button.dataset.projection === currentProjection;
+    button.setAttribute('aria-checked', String(active));
+    button.classList.toggle('active', active);
+  });
 }
 
-function toggleProjection() {
-  currentProjection =
-    currentProjection === 'perspective' ? 'orthographic' : 'perspective';
+function setProjection(value) {
+  currentProjection = value === 'orthographic' ? 'orthographic' : 'perspective';
   try {
     localStorage.setItem(PROJECTION_STORAGE_KEY, currentProjection);
   } catch {
@@ -2221,6 +2241,12 @@ function toggleProjection() {
   }
   syncProjectionUi();
   if (preview && !previewFailed) preview.setProjection(currentProjection);
+}
+
+function toggleProjection() {
+  setProjection(
+    currentProjection === 'perspective' ? 'orthographic' : 'perspective',
+  );
 }
 
 function setActiveView(view) {
@@ -2482,7 +2508,57 @@ function tightenLegacyDefaultEnclosure(candidate) {
   enclosure.top_gap = 16;
 }
 
+function readAutosaveEnabled() {
+  try {
+    return localStorage.getItem(AUTOSAVE_ENABLED_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveAutosaveEnabled(enabled) {
+  try {
+    if (enabled) localStorage.removeItem(AUTOSAVE_ENABLED_STORAGE_KEY);
+    else localStorage.setItem(AUTOSAVE_ENABLED_STORAGE_KEY, 'off');
+  } catch {
+    // The in-memory setting still works without storage.
+  }
+}
+
+function syncAutosaveUi() {
+  dom.autosaveToggle.checked = autosaveEnabled;
+  if (!autosaveEnabled) {
+    clearTimeout(savedLabelTimer);
+    dom.autosaveLabel.textContent = '自动保存已关闭';
+    dom.autosaveLabel.classList.remove('is-saved');
+  } else if (dom.autosaveLabel.textContent === '自动保存已关闭') {
+    dom.autosaveLabel.textContent = '草稿自动保存';
+  }
+}
+
+function setAutosaveEnabled(enabled, { persist = true } = {}) {
+  autosaveEnabled = Boolean(enabled);
+  if (persist) saveAutosaveEnabled(autosaveEnabled);
+  if (!autosaveEnabled) {
+    clearTimeout(saveTimer);
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_CASE_STORAGE_KEY);
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
+    } catch {
+      // Ignore unavailable storage.
+    }
+  } else {
+    saveNow();
+  }
+  syncAutosaveUi();
+}
+
 function queueSave() {
+  if (!autosaveEnabled) {
+    syncAutosaveUi();
+    return;
+  }
   clearTimeout(saveTimer);
   dom.autosaveLabel.textContent = '正在保存草稿…';
   dom.autosaveLabel.classList.remove('is-saved');
@@ -2491,6 +2567,10 @@ function queueSave() {
 
 function saveNow() {
   clearTimeout(saveTimer);
+  if (!autosaveEnabled) {
+    syncAutosaveUi();
+    return;
+  }
   try {
     const documentData = toCaseDocument(state, { touch: false });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(documentData));
@@ -2685,13 +2765,24 @@ function bindEvents() {
     if (button) requestPresetLoad(button.dataset.presetId);
   });
 
-  dom.modeButton.addEventListener('click', () => {
-    setThemeMode(currentMode === 'dark' ? 'light' : 'dark');
+  dom.settingsButton.addEventListener('click', openSettings);
+  dom.settingsCloseButton.addEventListener('click', () => closeSettings());
+  dom.settingsDoneButton.addEventListener('click', () => closeSettings());
+  dom.settingsModal.addEventListener('click', (event) => {
+    if (event.target === dom.settingsModal) closeSettings();
   });
-  dom.themeButton.addEventListener('click', () => {
-    setThemeMenuOpen(dom.themeMenu.hidden);
+  dom.settingsModeGroup.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-mode]');
+    if (button) setThemeMode(button.dataset.mode);
   });
-  dom.themeCloseButton.addEventListener('click', () => setThemeMenuOpen(false));
+  dom.settingsProjectionGroup.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-projection]');
+    if (button) setProjection(button.dataset.projection);
+  });
+  dom.autosaveToggle.addEventListener('change', () => {
+    setAutosaveEnabled(dom.autosaveToggle.checked);
+  });
+  dom.resetSettingsButton.addEventListener('click', resetSettings);
   dom.themePresets.addEventListener('click', (event) => {
     const button = event.target.closest('[data-theme-color]');
     if (button) applyThemeColor(button.dataset.themeColor);
@@ -2699,7 +2790,6 @@ function bindEvents() {
   dom.themeColorInput.addEventListener('input', () => {
     applyThemeColor(dom.themeColorInput.value);
   });
-  dom.resetThemeButton.addEventListener('click', resetTheme);
 
   dom.saveProjectButton.addEventListener('click', saveCurrentProject);
   dom.projectsButton.addEventListener('click', openProjectLauncher);
@@ -2762,6 +2852,11 @@ function bindEvents() {
   dom.sheetExportDxfButton.addEventListener('click', exportCutDxf);
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
+    if (!dom.settingsModal.hidden) {
+      event.preventDefault();
+      closeSettings();
+      return;
+    }
     if (!dom.projectModal.hidden) {
       event.preventDefault();
       closeProjectDialog();
@@ -2928,6 +3023,7 @@ function exposeDebugApi() {
       getProjection: () => currentProjection,
       getCamera: () => (preview ? preview.getCameraState() : null),
       isBusy: () => isBuilding || modelDirty,
+      isAutosaveEnabled: () => autosaveEnabled,
       setView: (view) => requestView(view),
       setExploded: (value) => {
         exploded = Boolean(value);

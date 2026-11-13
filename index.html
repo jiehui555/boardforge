@@ -62,41 +62,11 @@
         </div>
 
         <div class="topbar-actions">
-          <button class="btn btn-quiet mode-button" id="modeButton" type="button" title="切换到浅色模式" aria-label="切换到浅色模式">
-            <svg class="mode-icon mode-icon-moon" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 11.6A6.4 6.4 0 0 1 8.4 4a6.4 6.4 0 1 0 7.6 7.6Z" /></svg>
-            <svg class="mode-icon mode-icon-sun" viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="3.2" /><path d="M10 2.2v2.1M10 15.7v2.1M2.2 10h2.1M15.7 10h2.1M4.5 4.5l1.5 1.5M14 14l1.5 1.5M15.5 4.5 14 6M6 14l-1.5 1.5" /></svg>
-            <span id="modeButtonLabel">深色</span>
+          <button class="btn btn-quiet settings-button" id="settingsButton" type="button" aria-haspopup="dialog" aria-expanded="false" title="界面与预览设置">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h8M15.5 6H17M3 14h4M11.5 14H17" /><circle cx="13.2" cy="6" r="1.9" /><circle cx="9.2" cy="14" r="1.9" /></svg>
+            <span>设置</span>
+            <i class="theme-dot" aria-hidden="true"></i>
           </button>
-          <div class="theme-anchor">
-            <button class="btn btn-quiet theme-button" id="themeButton" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="themeMenu" title="设置界面主题色" aria-label="设置界面主题色">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 0 14h1.2a1.8 1.8 0 0 0 0-3.6h-.6a1.4 1.4 0 0 1 0-2.8h2.5A4.9 4.9 0 0 0 18 5.7C17.2 4.1 13.9 3 10 3Z" /><circle cx="6.3" cy="8" r=".8" /><circle cx="10" cy="6.2" r=".8" /><circle cx="13.7" cy="8.1" r=".8" /></svg>
-              <span>主题</span>
-              <i class="theme-dot" aria-hidden="true"></i>
-            </button>
-            <div class="theme-menu" id="themeMenu" hidden role="dialog" aria-label="界面主题色设置">
-              <div class="theme-menu-head">
-                <div>
-                  <span class="eyebrow">外观</span>
-                  <strong>界面主题色</strong>
-                </div>
-                <button class="theme-close" id="themeCloseButton" type="button" aria-label="关闭主题设置">
-                  <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
-                </button>
-              </div>
-              <p class="theme-help">只改变界面强调色，不改变板子或亚克力颜色。</p>
-              <div class="theme-presets" id="themePresets" role="group" aria-label="主题色预设"></div>
-              <label class="theme-custom">
-                <span>自定义颜色</span>
-                <span class="theme-custom-value">
-                  <input id="themeColorInput" type="color" value="#8ee89d" aria-label="选择自定义主题色" />
-                  <span class="theme-color-preview" id="themeColorPreview"></span>
-                  <span class="theme-color-hex" id="themeColorHex">#8EE89D</span>
-                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
-                </span>
-              </label>
-              <button class="theme-reset" id="resetThemeButton" type="button">恢复默认主题</button>
-            </div>
-          </div>
           <button class="btn btn-quiet" id="saveProjectButton" type="button" title="保存当前项目到本机项目库">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h9l3 3v10H4zM7 3.5v4h6v-4M7 12h6" /></svg>
             <span>保存</span>
@@ -567,6 +537,90 @@
         <div class="launcher-foot">
           <button class="btn btn-secondary" id="launcherImportButton" type="button">导入参数文件</button>
           <button class="btn btn-primary" id="launcherContinueButton" type="button">继续当前项目</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-modal" id="settingsModal" hidden aria-hidden="true">
+      <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-describedby="settingsIntro">
+        <div class="settings-head">
+          <div>
+            <span class="eyebrow">设置</span>
+            <h2 id="settingsTitle">界面与预览</h2>
+          </div>
+          <button class="confirm-close" id="settingsCloseButton" type="button" aria-label="关闭设置">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+          </button>
+        </div>
+
+        <div class="settings-body">
+          <p class="settings-intro" id="settingsIntro">以下都是本机界面偏好，不会改动外壳参数，也不写入导出的文件。</p>
+
+          <section class="settings-group" aria-labelledby="settingsAppearanceTitle">
+            <div class="settings-group-head">
+              <h3 id="settingsAppearanceTitle">外观</h3>
+              <span class="settings-badge">仅本机</span>
+            </div>
+
+            <div class="settings-row">
+              <span class="settings-label">深浅色</span>
+              <div class="segmented-control" id="settingsModeGroup" role="radiogroup" aria-label="深浅色">
+                <button class="segmented-button" type="button" data-mode="dark" role="radio" aria-checked="true">深色</button>
+                <button class="segmented-button" type="button" data-mode="light" role="radio" aria-checked="false">浅色</button>
+              </div>
+            </div>
+
+            <div class="settings-field">
+              <span class="settings-label">主题色</span>
+              <p class="settings-hint">只改变界面强调色，不改变板子或亚克力颜色。</p>
+              <div class="theme-presets" id="themePresets" role="group" aria-label="主题色预设"></div>
+              <label class="theme-custom">
+                <span>自定义颜色</span>
+                <span class="theme-custom-value">
+                  <input id="themeColorInput" type="color" value="#8ee89d" aria-label="选择自定义主题色" />
+                  <span class="theme-color-preview" id="themeColorPreview"></span>
+                  <span class="theme-color-hex" id="themeColorHex">#8EE89D</span>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </span>
+              </label>
+            </div>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settingsPreviewTitle">
+            <div class="settings-group-head">
+              <h3 id="settingsPreviewTitle">三维预览</h3>
+              <span class="settings-badge">仅本机</span>
+            </div>
+
+            <div class="settings-row">
+              <span class="settings-label">投影方式</span>
+              <div class="segmented-control" id="settingsProjectionGroup" role="radiogroup" aria-label="投影方式">
+                <button class="segmented-button" type="button" data-projection="perspective" role="radio" aria-checked="true">透视</button>
+                <button class="segmented-button" type="button" data-projection="orthographic" role="radio" aria-checked="false">正交</button>
+              </div>
+            </div>
+            <p class="settings-hint">与 3D 工具栏的投影按钮保持同步。</p>
+          </section>
+
+          <section class="settings-group" aria-labelledby="settingsDraftTitle">
+            <div class="settings-group-head">
+              <h3 id="settingsDraftTitle">草稿</h3>
+            </div>
+
+            <label class="switch-row settings-switch">
+              <span class="switch-copy">
+                <strong>自动保存草稿</strong>
+                <small>关闭后刷新页面不会恢复当前项目；已保存到项目库的项目不受影响</small>
+              </span>
+              <input id="autosaveToggle" type="checkbox" checked />
+              <span class="switch-track" aria-hidden="true"><span></span></span>
+            </label>
+          </section>
+        </div>
+
+        <div class="settings-foot">
+          <button class="btn btn-quiet" id="resetSettingsButton" type="button">全部恢复默认</button>
+          <button class="btn btn-primary" id="settingsDoneButton" type="button">完成</button>
         </div>
       </div>
     </div>

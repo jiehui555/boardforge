@@ -340,12 +340,12 @@ try {
     'side view button returns to a neutral label in 3D view',
   );
 
-  // Theme and mode controls remain available in the enclosure-first UI.
-  await page.locator('#themeButton').click();
+  // Settings dialog hosts theme, mode, projection and autosave preferences.
+  await page.locator('#settingsButton').click();
+  ok(await page.locator('#settingsModal').isVisible(), 'settings dialog opens from the top bar');
   await page.locator('[data-theme-preset="sky"]').click();
   ok((await page.evaluate(() => window.boardForge.getTheme())) === '#7dd3fc', 'theme preset updates accent');
-  await page.keyboard.press('Escape');
-  await page.locator('#modeButton').click();
+  await page.locator('#settingsModeGroup [data-mode="light"]').click();
   await page.waitForTimeout(520);
   const light = await page.evaluate(() => ({
     mode: window.boardForge.getMode(),
@@ -356,6 +356,75 @@ try {
   ok(light.mode === 'light' && light.root === 'light', 'light mode switches the shell UI');
   ok(light.background === 'rgb(237, 242, 238)', 'light mode applies a light background');
   ok(light.stored === 'light', 'light mode preference is persisted');
+  ok(
+    (await page.locator('#settingsModeGroup [data-mode="light"]').getAttribute('aria-checked')) === 'true',
+    'settings dialog reflects the active light mode',
+  );
+
+  // Projection can also be changed from the settings dialog.
+  await page.locator('#settingsProjectionGroup [data-projection="orthographic"]').click();
+  ok(
+    (await page.evaluate(() => window.boardForge.getProjection())) === 'orthographic',
+    'settings dialog switches projection',
+  );
+  ok(
+    (await page.locator('#projectionButton').getAttribute('aria-pressed')) === 'true',
+    'toolbar projection button follows the settings choice',
+  );
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(200);
+  ok(await page.locator('#settingsModal').isHidden(), 'Escape closes the settings dialog');
+  await page.locator('#projectionButton').click();
+  ok(
+    (await page.evaluate(() => window.boardForge.getProjection())) === 'perspective',
+    'toolbar projection button switches back to perspective',
+  );
+  await page.locator('#settingsButton').click();
+  ok(
+    (await page.locator('#settingsProjectionGroup [data-projection="perspective"]').getAttribute('aria-checked')) === 'true',
+    'settings projection control follows the toolbar button',
+  );
+
+  // Autosave preference can be turned off and on again.
+  await page.locator('.settings-switch').click();
+  const autosaveOff = await page.evaluate(() => ({
+    enabled: window.boardForge.isAutosaveEnabled(),
+    stored: localStorage.getItem('boardforge.autosave-enabled.v1'),
+    draft: localStorage.getItem('boardforge.case-autosave.v2'),
+  }));
+  ok(autosaveOff.enabled === false, 'autosave can be disabled');
+  ok(autosaveOff.stored === 'off', 'disabled autosave is persisted');
+  ok(autosaveOff.draft === null, 'disabling autosave clears the local draft');
+  await page.locator('.settings-switch').click();
+  ok(
+    (await page.evaluate(() => window.boardForge.isAutosaveEnabled())) === true,
+    'autosave can be enabled again',
+  );
+
+  // Capture the settings dialog in the light theme used by the docs.
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
+  await page.screenshot({ path: join(screenshots, 'case-settings.png') });
+
+  // Reset restores every interface preference.
+  await page.locator('#resetSettingsButton').click();
+  await page.waitForTimeout(300);
+  const reset = await page.evaluate(() => ({
+    theme: window.boardForge.getTheme(),
+    mode: window.boardForge.getMode(),
+    projection: window.boardForge.getProjection(),
+    autosave: window.boardForge.isAutosaveEnabled(),
+  }));
+  ok(reset.theme === '#8ee89d', 'reset restores the default theme colour');
+  ok(reset.mode === 'dark', 'reset restores dark mode');
+  ok(reset.projection === 'perspective', 'reset restores perspective projection');
+  ok(reset.autosave === true, 'reset restores autosave');
+
+  // Put the shell back into the light theme used by the rest of the checks.
+  await page.locator('#settingsModeGroup [data-mode="light"]').click();
+  await page.locator('[data-theme-preset="sky"]').click();
+  await page.locator('#settingsDoneButton').click();
+  await page.waitForTimeout(520);
+  ok(await page.locator('#settingsModal').isHidden(), 'done button closes the settings dialog');
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
   await page.screenshot({ path: join(screenshots, 'case-light.png') });
 
@@ -569,13 +638,13 @@ try {
   // Vent toggle.
   await openAccordion('mechanical');
   const ventTopBefore = (await diagnostics()).panels.find((panel) => panel.id === 'top').holes;
-  await page.locator('.switch-row').click();
+  await page.locator('aside .switch-row').click();
   await waitIdle();
   const ventTopAfter = (await diagnostics()).panels.find((panel) => panel.id === 'top').holes;
   ok(!(await page.locator('#ventEnabledInput').isChecked()), 'vent switch can be turned off');
   ok(ventTopAfter < ventTopBefore, 'disabling vents removes top-panel slots');
   ok((await state()).enclosure.vent.enabled === false, 'vent state is persisted in parameters');
-  await page.locator('.switch-row').click();
+  await page.locator('aside .switch-row').click();
   await waitIdle();
   ok(await page.locator('#ventEnabledInput').isChecked(), 'vent switch can be turned back on');
 
@@ -822,14 +891,26 @@ try {
   ok(mobileInitial.scrollY === 0, 'mobile page opens at the 3D preview without auto-scrolling');
   await mobile.screenshot({ path: join(screenshots, 'case-mobile.png') });
 
-  await mobile.locator('#modeButton').click();
+  await mobile.locator('#settingsButton').click();
+  ok(await mobile.locator('#settingsModal').isVisible(), 'settings dialog opens on mobile');
+  await mobile.locator('#settingsModeGroup [data-mode="dark"]').click();
+  await mobile.waitForTimeout(420);
+  ok(
+    (await mobile.evaluate(() => window.boardForge.getMode())) === 'dark',
+    'mobile settings switch to dark mode',
+  );
+  await mobile.locator('#settingsModeGroup [data-mode="light"]').click();
   await mobile.waitForTimeout(550);
   const mobileLight = await mobile.evaluate(() => ({
     mode: window.boardForge.getMode(),
     noOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
   }));
-  ok(mobileLight.mode === 'light', 'mobile mode toggle switches to light mode');
+  ok(mobileLight.mode === 'light', 'mobile settings switch to light mode');
   ok(mobileLight.noOverflow, 'mobile light mode has no horizontal overflow');
+  await mobile.screenshot({ path: join(screenshots, 'case-mobile-settings.png') });
+  await mobile.locator('#settingsDoneButton').click();
+  await mobile.waitForTimeout(350);
+  ok(await mobile.locator('#settingsModal').isHidden(), 'settings dialog closes on mobile');
   await mobile.screenshot({ path: join(screenshots, 'case-mobile-light.png') });
   await mobile.close();
 
