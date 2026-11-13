@@ -585,6 +585,15 @@
               </div>
             </div>
             <p class="settings-hint">与 3D 工具栏的投影按钮保持同步。</p>
+
+            <label class="switch-row settings-switch settings-switch-stacked">
+              <span class="switch-copy">
+                <strong>阴影效果</strong>
+                <small>关闭后跳过阴影贴图渲染，低配置设备帧率更稳</small>
+              </span>
+              <input id="shadowsToggle" type="checkbox" checked />
+              <span class="switch-track" aria-hidden="true"><span></span></span>
+            </label>
           </section>
 
           <section class="settings-group" aria-labelledby="settingsDraftTitle">
@@ -592,7 +601,7 @@
               <h3 id="settingsDraftTitle">草稿</h3>
             </div>
 
-            <label class="switch-row settings-switch">
+            <label class="switch-row settings-switch settings-switch-autosave">
               <span class="switch-copy">
                 <strong>自动保存草稿</strong>
                 <small>关闭后刷新页面不会恢复当前项目；已保存到项目库的项目不受影响</small>

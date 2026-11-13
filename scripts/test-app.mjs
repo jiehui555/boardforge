@@ -386,7 +386,7 @@ try {
   );
 
   // Autosave preference can be turned off and on again.
-  await page.locator('.settings-switch').click();
+  await page.locator('.settings-switch-autosave').click();
   const autosaveOff = await page.evaluate(() => ({
     enabled: window.boardForge.isAutosaveEnabled(),
     stored: localStorage.getItem('boardforge.autosave-enabled.v1'),
@@ -395,10 +395,26 @@ try {
   ok(autosaveOff.enabled === false, 'autosave can be disabled');
   ok(autosaveOff.stored === 'off', 'disabled autosave is persisted');
   ok(autosaveOff.draft === null, 'disabling autosave clears the local draft');
-  await page.locator('.settings-switch').click();
+  await page.locator('.settings-switch-autosave').click();
   ok(
     (await page.evaluate(() => window.boardForge.isAutosaveEnabled())) === true,
     'autosave can be enabled again',
+  );
+
+  // Shadows can be disabled for low-end GPUs.
+  await page.locator('.settings-switch-stacked').click();
+  const shadowsOff = await page.evaluate(() => ({
+    enabled: window.boardForge.isShadowsEnabled(),
+    renderer: window.boardForge.isPreviewShadowsEnabled(),
+    stored: localStorage.getItem('boardforge.shadows-enabled.v1'),
+  }));
+  ok(shadowsOff.enabled === false, 'shadows can be disabled');
+  ok(shadowsOff.renderer === false, 'renderer stops drawing shadow maps');
+  ok(shadowsOff.stored === 'off', 'disabled shadows are persisted');
+  await page.locator('.settings-switch-stacked').click();
+  ok(
+    (await page.evaluate(() => window.boardForge.isPreviewShadowsEnabled())) === true,
+    'shadows can be enabled again',
   );
 
   // Capture the settings dialog in the light theme used by the docs.
@@ -413,11 +429,13 @@ try {
     mode: window.boardForge.getMode(),
     projection: window.boardForge.getProjection(),
     autosave: window.boardForge.isAutosaveEnabled(),
+    shadows: window.boardForge.isShadowsEnabled(),
   }));
   ok(reset.theme === '#8ee89d', 'reset restores the default theme colour');
   ok(reset.mode === 'dark', 'reset restores dark mode');
   ok(reset.projection === 'perspective', 'reset restores perspective projection');
   ok(reset.autosave === true, 'reset restores autosave');
+  ok(reset.shadows === true, 'reset restores shadows');
 
   // Put the shell back into the light theme used by the rest of the checks.
   await page.locator('#settingsModeGroup [data-mode="light"]').click();

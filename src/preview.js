@@ -114,6 +114,7 @@ export class BoardPreview {
     this.panelEntries = [];
     this.disposed = false;
     this.pendingFit = true;
+    this.shadowsEnabled = true;
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -126,7 +127,7 @@ export class BoardPreview {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.enabled = this.shadowsEnabled;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene = new THREE.Scene();
@@ -335,6 +336,7 @@ export class BoardPreview {
     key.shadow.camera.far = 850;
     key.shadow.bias = -0.0002;
     key.shadow.normalBias = 0.04;
+    this.keyLight = key;
     this.scene.add(key);
 
     const fill = new THREE.DirectionalLight(0x8bbd9a, 0.55);
@@ -375,6 +377,26 @@ export class BoardPreview {
     this.panelEdgeMaterial.opacity = light ? 0.72 : 0.58;
     if (this.grid) this.grid.material.opacity = light ? 0.2 : 0.32;
     if (this.shadowPlane) this.shadowPlane.material.opacity = light ? 0.18 : 0.28;
+  }
+
+  /**
+   * Shadow maps cost a second render pass plus per-fragment sampling. Low-end
+   * GPUs can turn them off without losing the model or its edge highlights.
+   */
+  setShadows(enabled) {
+    const next = Boolean(enabled);
+    if (this.shadowsEnabled === next) return;
+    this.shadowsEnabled = next;
+    this.renderer.shadowMap.enabled = next;
+    if (this.keyLight) this.keyLight.castShadow = next;
+    if (this.shadowPlane) this.shadowPlane.visible = next;
+    this.scene.traverse((object) => {
+      if (!object.material) return;
+      const materials = Array.isArray(object.material)
+        ? object.material
+        : [object.material];
+      for (const material of materials) material.needsUpdate = true;
+    });
   }
 
   getVisibleHeight() {

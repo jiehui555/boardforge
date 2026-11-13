@@ -3184,6 +3184,10 @@ body.settings-open {
   border-top: 0;
 }
 
+.settings-switch-stacked {
+  margin-top: 14px;
+}
+
 .settings-foot {
   display: flex;
   align-items: center;

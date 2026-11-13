@@ -53,6 +53,7 @@ const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
 const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
 const AUTOSAVE_ENABLED_STORAGE_KEY = 'boardforge.autosave-enabled.v1';
+const SHADOWS_ENABLED_STORAGE_KEY = 'boardforge.shadows-enabled.v1';
 const PROJECTS_STORAGE_KEY = 'boardforge.projects.v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'boardforge.active-project.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
@@ -139,6 +140,7 @@ const dom = {
   ),
   resetSettingsButton: document.querySelector('#resetSettingsButton'),
   autosaveToggle: document.querySelector('#autosaveToggle'),
+  shadowsToggle: document.querySelector('#shadowsToggle'),
   themePresets: document.querySelector('#themePresets'),
   themeColorInput: document.querySelector('#themeColorInput'),
   themeColorHex: document.querySelector('#themeColorHex'),
@@ -227,6 +229,7 @@ let activeView = 'iso';
 let exploded = false;
 let currentProjection = readProjectionMode();
 let autosaveEnabled = true;
+let shadowsEnabled = true;
 let activeOpeningSide = 'front';
 let selectedOpeningIndex = null;
 let openingDrag = null;
@@ -248,6 +251,7 @@ bootstrap();
 
 function bootstrap() {
   autosaveEnabled = readAutosaveEnabled();
+  shadowsEnabled = readShadowsEnabled();
   initializeTheme();
   const restored = autosaveEnabled ? readStoredState() : null;
   if (restored) {
@@ -262,6 +266,7 @@ function bootstrap() {
   syncFormFromState();
   syncProjectionUi();
   syncAutosaveUi();
+  syncShadowsUi();
   setActiveView(activeView);
   initializeAccordions();
   bindEvents();
@@ -275,6 +280,7 @@ function bootstrap() {
       });
       preview.setMode(currentMode);
       preview.setProjection(currentProjection);
+      preview.setShadows(shadowsEnabled);
       preview.setBoardColor(state.board.color);
     } catch (error) {
       showFatal(error?.message || '无法创建 WebGL 上下文。');
@@ -372,6 +378,7 @@ function syncSettingsUi() {
   syncModeUi();
   syncProjectionUi();
   syncAutosaveUi();
+  syncShadowsUi();
 }
 
 function resetSettings() {
@@ -379,7 +386,8 @@ function resetSettings() {
   setThemeMode(DEFAULT_THEME_MODE);
   setProjection('perspective');
   setAutosaveEnabled(true);
-  toast('设置已恢复默认', '深色 · 默认主题色 · 透视投影 · 自动保存开启');
+  setShadowsEnabled(true);
+  toast('设置已恢复默认', '深色 · 默认主题色 · 透视投影 · 自动保存与阴影开启');
 }
 
 /* ── Sidebar accordions ─────────────────────────────────────────────────── */
@@ -2554,6 +2562,34 @@ function setAutosaveEnabled(enabled, { persist = true } = {}) {
   syncAutosaveUi();
 }
 
+function readShadowsEnabled() {
+  try {
+    return localStorage.getItem(SHADOWS_ENABLED_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveShadowsEnabled(enabled) {
+  try {
+    if (enabled) localStorage.removeItem(SHADOWS_ENABLED_STORAGE_KEY);
+    else localStorage.setItem(SHADOWS_ENABLED_STORAGE_KEY, 'off');
+  } catch {
+    // The in-memory setting still works without storage.
+  }
+}
+
+function syncShadowsUi() {
+  dom.shadowsToggle.checked = shadowsEnabled;
+}
+
+function setShadowsEnabled(enabled, { persist = true } = {}) {
+  shadowsEnabled = Boolean(enabled);
+  if (persist) saveShadowsEnabled(shadowsEnabled);
+  syncShadowsUi();
+  if (preview && !previewFailed) preview.setShadows(shadowsEnabled);
+}
+
 function queueSave() {
   if (!autosaveEnabled) {
     syncAutosaveUi();
@@ -2781,6 +2817,9 @@ function bindEvents() {
   });
   dom.autosaveToggle.addEventListener('change', () => {
     setAutosaveEnabled(dom.autosaveToggle.checked);
+  });
+  dom.shadowsToggle.addEventListener('change', () => {
+    setShadowsEnabled(dom.shadowsToggle.checked);
   });
   dom.resetSettingsButton.addEventListener('click', resetSettings);
   dom.themePresets.addEventListener('click', (event) => {
@@ -3024,6 +3063,9 @@ function exposeDebugApi() {
       getCamera: () => (preview ? preview.getCameraState() : null),
       isBusy: () => isBuilding || modelDirty,
       isAutosaveEnabled: () => autosaveEnabled,
+      isShadowsEnabled: () => shadowsEnabled,
+      isPreviewShadowsEnabled: () =>
+        preview ? preview.renderer.shadowMap.enabled : null,
       setView: (view) => requestView(view),
       setExploded: (value) => {
         exploded = Boolean(value);
