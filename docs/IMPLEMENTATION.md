@@ -165,6 +165,8 @@
 
 - 透明亚克力材质 + 发光边线；
 - 深色/浅色模式下自动调整面板颜色、网格和阴影；
+- 透视投影和正交投影切换，切换时保持相机方向、目标点和视觉尺度；
+- 正交相机使用独立视锥和 OrbitControls，偏好保存在本机；
 - 立体、顶视、前视、右视四个视角；
 - 爆炸视图；
 - 开发板参考模型显示在内腔中；
@@ -173,10 +175,10 @@
 
 ## 8. 验收
 
-`npm test` 当前执行 **132 项检查**：
+`npm test` 当前执行 **139 项检查**：
 
 - 59 项 schema / 几何 / 导出测试；
-- 73 项浏览器端到端测试。
+- 80 项浏览器端到端测试。
 
 覆盖：
 
@@ -194,6 +196,7 @@
 - R12 DXF 结构、CUT 图层、单位；
 - SVG 六块面板路径；
 - 装配 STL 长度与包围盒；
+- 透视/正交投影切换与刷新后保持；
 - 爆炸视图；
 - 深浅色模式和主题色持久化；
 - 移动端无横向溢出；
@@ -203,6 +206,7 @@
 
 - `screenshots/case-default.png`
 - `screenshots/case-light.png`
+- `screenshots/case-orthographic.png`
 - `screenshots/case-exploded.png`
 - `screenshots/case-opening.png`
 - `screenshots/case-mobile.png`

@@ -158,6 +158,34 @@ try {
 
   await page.screenshot({ path: join(screenshots, 'case-default.png') });
 
+  // Perspective / orthographic projection switch.
+  ok(
+    (await page.evaluate(() => window.boardForge.getProjection())) === 'perspective',
+    'default camera uses perspective projection',
+  );
+  await page.locator('#projectionButton').click();
+  await page.waitForTimeout(250);
+  ok(
+    (await page.evaluate(() => window.boardForge.getProjection())) === 'orthographic',
+    'projection button switches to orthographic projection',
+  );
+  ok(
+    (await page.locator('#projectionButtonLabel').textContent()) === '正交',
+    'projection button reflects orthographic mode',
+  );
+  ok(
+    (await page.locator('#projectionButton').getAttribute('aria-pressed')) === 'true',
+    'projection toggle exposes its pressed state',
+  );
+  await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
+  await page.screenshot({ path: join(screenshots, 'case-orthographic.png') });
+  await page.locator('#projectionButton').click();
+  await page.waitForTimeout(120);
+  ok(
+    (await page.evaluate(() => window.boardForge.getProjection())) === 'perspective',
+    'projection button switches back to perspective',
+  );
+
   // Theme and mode controls remain available in the enclosure-first UI.
   await page.locator('#themeButton').click();
   await page.locator('[data-theme-preset="sky"]').click();
@@ -368,7 +396,13 @@ try {
   ok(dropped.board.length === 70, 'drag-and-drop board document is migrated');
   ok(dropped.enclosure.panel_thickness === 3, 'migrated document receives default enclosure');
 
-  // Autosave and theme/mode persistence.
+  // Autosave, mode, theme and projection persistence.
+  await page.locator('#projectionButton').click();
+  await page.waitForTimeout(120);
+  ok(
+    (await page.evaluate(() => window.boardForge.getProjection())) === 'orthographic',
+    'projection can be set to orthographic before reload',
+  );
   await page.evaluate(() => window.boardForge.flushSave());
   await page.waitForTimeout(150);
   await page.reload({ waitUntil: 'load' });
@@ -377,10 +411,12 @@ try {
     state: window.boardForge.getState(),
     mode: window.boardForge.getMode(),
     theme: window.boardForge.getTheme(),
+    projection: window.boardForge.getProjection(),
   }));
   ok(restored.state.name === 'Legacy Board', 'autosaved case survives reload');
   ok(restored.mode === 'light', 'light mode survives reload');
   ok(restored.theme === '#7dd3fc', 'theme colour survives reload');
+  ok(restored.projection === 'orthographic', 'orthographic projection survives reload');
 
   ok(consoleErrors.length === 0, `no browser errors were emitted:\n${consoleErrors.join('\n')}`);
 

@@ -28,9 +28,11 @@ export class BoardPreview {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
     this.onContextLost = options.onContextLost || (() => {});
-    this.bounds = { width: 103, depth: 74, height: 35.6, centerZ: 17.8 };
+    this.bounds = { width: 95, depth: 66, height: 29.6, centerZ: 14.8 };
     this.view = 'iso';
     this.mode = 'dark';
+    this.projection = 'perspective';
+    this.orthographicViewHeight = 100;
     this.transition = null;
     this.exploded = false;
     this.explodeProgress = 0;
@@ -55,24 +57,18 @@ export class BoardPreview {
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
 
     this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(36, 1, 0.1, 6000);
-    this.camera.up.set(0, 0, 1);
-    this.camera.position.set(170, -210, 180);
+    this.perspectiveCamera = new THREE.PerspectiveCamera(36, 1, 0.1, 6000);
+    this.perspectiveCamera.up.set(0, 0, 1);
+    this.perspectiveCamera.position.set(150, -190, 160);
 
-    this.controls = new OrbitControls(this.camera, canvas);
-    this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.075;
-    this.controls.rotateSpeed = 0.72;
-    this.controls.zoomSpeed = 0.82;
-    this.controls.panSpeed = 0.68;
-    this.controls.screenSpacePanning = true;
-    this.controls.minDistance = 8;
-    this.controls.maxDistance = 3200;
-    this.controls.target.set(0, 0, 15);
-    this.controls.update();
-    this.controls.addEventListener('start', () => {
-      this.transition = null;
-    });
+    this.orthographicCamera = new THREE.OrthographicCamera(-50, 50, 50, -50, 0.1, 6000);
+    this.orthographicCamera.up.set(0, 0, 1);
+    this.orthographicCamera.position.copy(this.perspectiveCamera.position);
+    this.orthographicCamera.zoom = 1;
+
+    this.camera = this.perspectiveCamera;
+    this.controls = null;
+    this.setupControls(this.camera, new THREE.Vector3(0, 0, 14.8));
 
     this.panelMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xbfe7e1,
@@ -131,6 +127,26 @@ export class BoardPreview {
     this.frame = requestAnimationFrame(this.animate);
   }
 
+  setupControls(camera, target) {
+    if (this.controls) this.controls.dispose();
+    this.controls = new OrbitControls(camera, this.canvas);
+    this.controls.enableDamping = true;
+    this.controls.dampingFactor = 0.075;
+    this.controls.rotateSpeed = 0.72;
+    this.controls.zoomSpeed = 0.82;
+    this.controls.panSpeed = 0.68;
+    this.controls.screenSpacePanning = true;
+    this.controls.minDistance = 8;
+    this.controls.maxDistance = 3200;
+    this.controls.minZoom = 0.08;
+    this.controls.maxZoom = 24;
+    this.controls.target.copy(target);
+    this.controls.update();
+    this.controls.addEventListener('start', () => {
+      this.transition = null;
+    });
+  }
+
   createEnvironment() {
     const hemisphere = new THREE.HemisphereLight(0xd8f1de, 0x070b08, 1.05);
     this.scene.add(hemisphere);
@@ -187,6 +203,69 @@ export class BoardPreview {
     this.panelEdgeMaterial.opacity = light ? 0.72 : 0.58;
     if (this.grid) this.grid.material.opacity = light ? 0.2 : 0.32;
     if (this.shadowPlane) this.shadowPlane.material.opacity = light ? 0.18 : 0.28;
+  }
+
+  getVisibleHeight() {
+    if (this.projection === 'orthographic') {
+      return (this.orthographicCamera.top - this.orthographicCamera.bottom) /
+        Math.max(0.001, this.orthographicCamera.zoom);
+    }
+    const distance = this.camera.position.distanceTo(this.controls.target);
+    const fov = THREE.MathUtils.degToRad(this.camera.fov);
+    return 2 * distance * Math.tan(fov / 2);
+  }
+
+  updateOrthoFrustum() {
+    const aspect = Math.max(0.2, this.perspectiveCamera.aspect || 1);
+    const height = Math.max(8, this.orthographicViewHeight);
+    const width = height * aspect;
+    const camera = this.orthographicCamera;
+    camera.left = -width / 2;
+    camera.right = width / 2;
+    camera.top = height / 2;
+    camera.bottom = -height / 2;
+    camera.updateProjectionMatrix();
+  }
+
+  /**
+   * Switch between perspective and orthographic (parallel) projection while
+   * preserving the current camera direction, target and apparent scale.
+   */
+  setProjection(mode) {
+    const next = mode === 'orthographic' ? 'orthographic' : 'perspective';
+    if (next === this.projection) return this.projection;
+
+    const target = this.controls.target.clone();
+    const direction = this.camera.position.clone().sub(target);
+    if (direction.lengthSq() < 1e-8) direction.set(1, -1.2, 1);
+    direction.normalize();
+    const visibleHeight = Math.max(10, this.getVisibleHeight());
+    const up = this.camera.up.clone();
+    this.transition = null;
+
+    if (next === 'orthographic') {
+      const distance = Math.max(60, this.camera.position.distanceTo(target));
+      this.orthographicViewHeight = visibleHeight;
+      this.orthographicCamera.zoom = 1;
+      this.orthographicCamera.up.copy(up);
+      this.orthographicCamera.position.copy(target).addScaledVector(direction, distance);
+      this.orthographicCamera.lookAt(target);
+      this.updateOrthoFrustum();
+      this.camera = this.orthographicCamera;
+      this.projection = 'orthographic';
+      this.setupControls(this.camera, target);
+    } else {
+      const fov = THREE.MathUtils.degToRad(this.perspectiveCamera.fov);
+      const distance = Math.max(20, visibleHeight / (2 * Math.tan(fov / 2)));
+      this.perspectiveCamera.up.copy(up);
+      this.perspectiveCamera.position.copy(target).addScaledVector(direction, distance);
+      this.perspectiveCamera.lookAt(target);
+      this.camera = this.perspectiveCamera;
+      this.projection = 'perspective';
+      this.setupControls(this.camera, target);
+    }
+
+    return this.projection;
   }
 
   setBoardColor(color) {
@@ -315,20 +394,32 @@ export class BoardPreview {
     const { width, depth, height, centerZ } = this.bounds;
     const radius =
       Math.sqrt(width * width + depth * depth + height * height) / 2;
-    const fov = THREE.MathUtils.degToRad(this.camera.fov);
-    const aspect = Math.max(0.35, this.camera.aspect || 1);
-    let distance = (radius / Math.sin(fov / 2)) * 1.25;
-    if (aspect < 0.9) distance /= Math.max(0.55, aspect);
+    const fov = THREE.MathUtils.degToRad(this.perspectiveCamera.fov);
+    const aspect = Math.max(0.35, this.perspectiveCamera.aspect || 1);
+    let perspectiveDistance = (radius / Math.sin(fov / 2)) * 1.25;
+    if (aspect < 0.9) perspectiveDistance /= Math.max(0.55, aspect);
 
     const target = new THREE.Vector3(0, 0, centerZ);
     const direction = new THREE.Vector3(...definition.direction).normalize();
-    const position = target.clone().addScaledVector(direction, Math.max(45, distance));
     const up = new THREE.Vector3(...definition.up);
+    const orthographic = this.projection === 'orthographic';
+    const visibleHeight = orthographic
+      ? 2 * perspectiveDistance * Math.tan(fov / 2)
+      : 0;
+    const positionDistance = orthographic
+      ? Math.max(70, perspectiveDistance)
+      : Math.max(45, perspectiveDistance);
+    const position = target.clone().addScaledVector(direction, positionDistance);
 
     if (!animate) {
       this.camera.up.copy(up);
       this.camera.position.copy(position);
       this.controls.target.copy(target);
+      if (orthographic) {
+        this.orthographicCamera.zoom = 1;
+        this.orthographicViewHeight = visibleHeight;
+        this.updateOrthoFrustum();
+      }
       this.camera.lookAt(target);
       this.controls.update();
       return;
@@ -341,9 +432,12 @@ export class BoardPreview {
       toTarget: target,
       fromUp: this.camera.up.clone(),
       toUp: up,
+      fromHeight: orthographic ? this.orthographicViewHeight : undefined,
+      toHeight: orthographic ? visibleHeight : undefined,
       start: performance.now(),
       duration: 400,
     };
+    if (orthographic) this.orthographicCamera.zoom = 1;
   }
 
   resize() {
@@ -354,8 +448,9 @@ export class BoardPreview {
     const height = Math.max(1, Math.round(rect.height));
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     this.renderer.setSize(width, height, false);
-    this.camera.aspect = width / height;
-    this.camera.updateProjectionMatrix();
+    this.perspectiveCamera.aspect = width / height;
+    this.perspectiveCamera.updateProjectionMatrix();
+    this.updateOrthoFrustum();
     if (this.pendingFit) {
       this.fitView(this.view, false);
       this.pendingFit = false;
@@ -382,6 +477,12 @@ export class BoardPreview {
       this.camera.up
         .lerpVectors(this.transition.fromUp, this.transition.toUp, eased)
         .normalize();
+      if (this.transition.fromHeight !== undefined) {
+        this.orthographicViewHeight =
+          this.transition.fromHeight +
+          (this.transition.toHeight - this.transition.fromHeight) * eased;
+        this.updateOrthoFrustum();
+      }
       if (elapsed >= 1) this.transition = null;
     }
 

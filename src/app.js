@@ -48,6 +48,7 @@ import {
 const STORAGE_KEY = 'boardforge.case-autosave.v2';
 const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
 const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
+const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
 const dom = {
@@ -127,6 +128,8 @@ const dom = {
   toastRoot: document.querySelector('#toastRoot'),
 
   viewButtons: Array.from(document.querySelectorAll('[data-view]')),
+  projectionButton: document.querySelector('#projectionButton'),
+  projectionButtonLabel: document.querySelector('#projectionButtonLabel'),
   explodeButton: document.querySelector('#explodeButton'),
 };
 
@@ -151,6 +154,7 @@ let savedLabelTimer = null;
 let dragDepth = 0;
 let activeView = 'iso';
 let exploded = false;
+let currentProjection = readProjectionMode();
 const pendingInvalid = new Set();
 
 /* ── Boot ───────────────────────────────────────────────────────────────── */
@@ -168,6 +172,7 @@ function bootstrap() {
 
   renderPresets();
   syncFormFromState();
+  syncProjectionUi();
   bindEvents();
   exposeDebugApi();
 
@@ -177,6 +182,7 @@ function bootstrap() {
         onContextLost: (message) => showFatal(message),
       });
       preview.setMode(currentMode);
+      preview.setProjection(currentProjection);
       preview.setBoardColor(state.board.color);
     } catch (error) {
       showFatal(error?.message || '无法创建 WebGL 上下文。');
@@ -1130,7 +1136,38 @@ function updateActionButtons() {
   dom.exportStlButton.disabled = unavailable;
 }
 
-/* ── Views / explosion ──────────────────────────────────────────────────── */
+/* ── Views / projection / explosion ─────────────────────────────────────── */
+
+function readProjectionMode() {
+  try {
+    return localStorage.getItem(PROJECTION_STORAGE_KEY) === 'orthographic'
+      ? 'orthographic'
+      : 'perspective';
+  } catch {
+    return 'perspective';
+  }
+}
+
+function syncProjectionUi() {
+  const orthographic = currentProjection === 'orthographic';
+  dom.projectionButton.setAttribute('aria-pressed', String(orthographic));
+  dom.projectionButton.title = orthographic
+    ? '切换到透视投影'
+    : '切换到正交投影';
+  dom.projectionButtonLabel.textContent = orthographic ? '正交' : '透视';
+}
+
+function toggleProjection() {
+  currentProjection =
+    currentProjection === 'perspective' ? 'orthographic' : 'perspective';
+  try {
+    localStorage.setItem(PROJECTION_STORAGE_KEY, currentProjection);
+  } catch {
+    // The in-memory setting still works without storage.
+  }
+  syncProjectionUi();
+  if (preview && !previewFailed) preview.setProjection(currentProjection);
+}
 
 function setActiveView(view) {
   activeView = view;
@@ -1578,6 +1615,7 @@ function bindEvents() {
   dom.viewButtons.forEach((button) => {
     button.addEventListener('click', () => requestView(button.dataset.view));
   });
+  dom.projectionButton.addEventListener('click', toggleProjection);
   dom.explodeButton.addEventListener('click', toggleExploded);
   dom.previewCanvas.addEventListener('dblclick', () => requestView('iso'));
 
@@ -1689,6 +1727,7 @@ function exposeDebugApi() {
       getFilename: () => caseFileStem(state),
       getTheme: () => currentThemeColor,
       getMode: () => currentMode,
+      getProjection: () => currentProjection,
       isBusy: () => isBuilding || modelDirty,
       setView: (view) => requestView(view),
       setExploded: (value) => {

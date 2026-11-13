@@ -1722,7 +1722,8 @@ html[data-mode="light"] .mode-icon-sun {
   pointer-events: auto;
 }
 
-.explode-button {
+.explode-button,
+.projection-button {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -1743,7 +1744,8 @@ html[data-mode="light"] .mode-icon-sun {
     background 0.16s ease;
 }
 
-.explode-button svg {
+.explode-button svg,
+.projection-button svg {
   width: 14px;
   height: 14px;
   fill: none;
@@ -1753,14 +1755,28 @@ html[data-mode="light"] .mode-icon-sun {
   stroke-linejoin: round;
 }
 
-.explode-button:hover {
+.explode-button:hover,
+.projection-button:hover {
   color: var(--text);
 }
 
-.explode-button[aria-pressed="true"] {
+.explode-button[aria-pressed="true"],
+.projection-button[aria-pressed="true"] {
   border-color: var(--accent-line);
   background: var(--accent-soft);
   color: var(--accent);
+}
+
+.projection-icon-orthographic {
+  display: none;
+}
+
+.projection-button[aria-pressed="true"] .projection-icon-perspective {
+  display: none;
+}
+
+.projection-button[aria-pressed="true"] .projection-icon-orthographic {
+  display: block;
 }
 
 .view-switch button {
@@ -2336,14 +2352,16 @@ html[data-mode="light"] .scene-heading h1 {
 }
 
 html[data-mode="light"] .view-switch,
-html[data-mode="light"] .explode-button {
+html[data-mode="light"] .explode-button,
+html[data-mode="light"] .projection-button {
   border-color: rgba(24, 50, 33, 0.17);
   background: rgba(251, 254, 251, 0.78);
   box-shadow: 0 4px 18px rgba(39, 61, 46, 0.08);
 }
 
 html[data-mode="light"] .view-switch button.active,
-html[data-mode="light"] .explode-button[aria-pressed="true"] {
+html[data-mode="light"] .explode-button[aria-pressed="true"],
+html[data-mode="light"] .projection-button[aria-pressed="true"] {
   background: var(--accent-soft);
 }
 
