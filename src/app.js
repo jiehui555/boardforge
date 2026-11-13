@@ -234,6 +234,7 @@ function bootstrap() {
     try {
       preview = new BoardPreview(dom.previewCanvas, {
         onContextLost: (message) => showFatal(message),
+        onViewChange: (view) => setActiveView(view),
       });
       preview.setMode(currentMode);
       preview.setProjection(currentProjection);

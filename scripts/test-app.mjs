@@ -100,6 +100,17 @@ async function selectView(view) {
   }
 }
 
+async function dragPreview(deltaX, deltaY) {
+  const box = await page.locator('#previewCanvas').boundingBox();
+  const x = box.x + box.width * 0.62;
+  const y = box.y + box.height * 0.55;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + deltaX, y + deltaY, { steps: 8 });
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+}
+
 async function download(selector, destination) {
   await page.locator(selector).scrollIntoViewIfNeeded();
   await page.waitForTimeout(120);
@@ -292,6 +303,34 @@ try {
   await page.waitForTimeout(700);
   const backView = await page.evaluate(() => window.boardForge.getCamera());
   ok(backView.direction[1] > 0.98, 'front-to-back transition ends on the back view');
+
+  // Manual orbiting from a preset top/side view returns to free 3D state.
+  await selectView('top');
+  await page.waitForTimeout(760);
+  await dragPreview(90, 45);
+  const topOrbit = await page.evaluate(() => window.boardForge.getCamera());
+  ok(
+    (await page.evaluate(() => window.boardForge.activeView())) === 'iso',
+    'orbiting from top view returns the toolbar to 3D state',
+  );
+  ok(
+    Math.abs(topOrbit.direction[0]) > 0.1 || Math.abs(topOrbit.direction[1]) > 0.1,
+    'top view can be freely orbited with the mouse',
+  );
+  ok(
+    (await page.locator('.view-switch > button[data-view="iso"]').getAttribute('class')).includes('active'),
+    '3D button becomes active after manual orbit',
+  );
+
+  await selectView('front');
+  await page.waitForTimeout(760);
+  await dragPreview(90, -45);
+  const sideOrbit = await page.evaluate(() => window.boardForge.getCamera());
+  ok(
+    (await page.evaluate(() => window.boardForge.activeView())) === 'iso',
+    'orbiting from a side view returns the toolbar to 3D state',
+  );
+  ok(Math.abs(sideOrbit.direction[2]) > 0.1, 'side view can be freely orbited with the mouse');
 
   await selectView('iso');
   await page.waitForTimeout(760);

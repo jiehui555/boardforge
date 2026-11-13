@@ -10,6 +10,8 @@ const VIEW_DIRECTIONS = Object.freeze({
   right: { direction: [1, 0, 0], up: [0, 0, 1] },
 });
 
+const ORBIT_UP = new THREE.Vector3(0, 1, 0);
+
 function smoothstep(value) {
   return value * value * (3 - 2 * value);
 }
@@ -30,6 +32,7 @@ export class BoardPreview {
   constructor(canvas, options = {}) {
     this.canvas = canvas;
     this.onContextLost = options.onContextLost || (() => {});
+    this.onViewChange = options.onViewChange || (() => {});
     this.bounds = { width: 95, depth: 66, height: 29.6, centerZ: 14.8 };
     this.view = 'iso';
     this.mode = 'dark';
@@ -70,7 +73,10 @@ export class BoardPreview {
 
     this.camera = this.perspectiveCamera;
     this.controls = null;
+    this.orbitPointers = new Set();
+    this.orbitGesture = null;
     this.setupControls(this.camera, new THREE.Vector3(0, 0, 14.8));
+    this.bindOrbitStateSync();
 
     this.panelMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xbfe7e1,
@@ -147,6 +153,59 @@ export class BoardPreview {
     this.controls.addEventListener('start', () => {
       this.transition = null;
     });
+  }
+
+  bindOrbitStateSync() {
+    this.handleOrbitPointerDown = (event) => {
+      this.syncOrbitAxis();
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
+      this.orbitPointers.add(event.pointerId);
+      if (this.orbitPointers.size > 1) {
+        this.orbitGesture = null;
+        return;
+      }
+      this.orbitGesture = {
+        pointerId: event.pointerId,
+        x: event.clientX,
+        y: event.clientY,
+        changed: false,
+      };
+    };
+    this.handleOrbitPointerMove = (event) => {
+      const gesture = this.orbitGesture;
+      if (!gesture || gesture.pointerId !== event.pointerId || gesture.changed) {
+        return;
+      }
+      if (Math.hypot(event.clientX - gesture.x, event.clientY - gesture.y) < 4) {
+        return;
+      }
+      gesture.changed = true;
+      if (this.view !== 'iso') {
+        this.view = 'iso';
+        this.onViewChange('iso');
+      }
+    };
+    this.handleOrbitPointerEnd = (event) => {
+      this.orbitPointers.delete(event.pointerId);
+      if (this.orbitGesture?.pointerId === event.pointerId) {
+        this.orbitGesture = null;
+      }
+    };
+
+    this.canvas.addEventListener('pointerdown', this.handleOrbitPointerDown);
+    this.canvas.addEventListener('pointermove', this.handleOrbitPointerMove);
+    this.canvas.addEventListener('pointerup', this.handleOrbitPointerEnd);
+    this.canvas.addEventListener('pointercancel', this.handleOrbitPointerEnd);
+  }
+
+  syncOrbitAxis() {
+    // OrbitControls caches the camera-up quaternion when it is constructed.
+    // Top view changes the camera up axis, so refresh that cached axis before
+    // OrbitControls handles the next drag.
+    const controls = this.controls;
+    if (!controls?._quat || !controls._quatInverse) return;
+    controls._quat.setFromUnitVectors(this.camera.up, ORBIT_UP);
+    controls._quatInverse.copy(controls._quat).invert();
   }
 
   createEnvironment() {
@@ -448,6 +507,7 @@ export class BoardPreview {
         this.updateOrthoFrustum();
       }
       this.camera.lookAt(target);
+      this.syncOrbitAxis();
       this.controls.update();
       return;
     }
@@ -539,7 +599,10 @@ export class BoardPreview {
           (this.transition.toHeight - this.transition.fromHeight) * eased;
         this.updateOrthoFrustum();
       }
-      if (elapsed >= 1) this.transition = null;
+      if (elapsed >= 1) {
+        this.transition = null;
+        this.syncOrbitAxis();
+      }
     }
 
     if (Math.abs(this.explodeProgress - this.explodeTarget) > 0.001) {
@@ -559,6 +622,10 @@ export class BoardPreview {
     this.disposed = true;
     cancelAnimationFrame(this.frame);
     this.resizeObserver.disconnect();
+    this.canvas.removeEventListener('pointerdown', this.handleOrbitPointerDown);
+    this.canvas.removeEventListener('pointermove', this.handleOrbitPointerMove);
+    this.canvas.removeEventListener('pointerup', this.handleOrbitPointerEnd);
+    this.canvas.removeEventListener('pointercancel', this.handleOrbitPointerEnd);
     this.controls.dispose();
     this.clearAssembly();
     this.panelMaterial.dispose();
