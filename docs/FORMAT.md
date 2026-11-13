@@ -38,9 +38,9 @@ BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三�
   ],
   "enclosure": {
     "panel_thickness": 3,
-    "clearance": 6,
-    "bottom_gap": 8,
-    "top_gap": 20,
+    "clearance": 2,
+    "bottom_gap": 6,
+    "top_gap": 16,
     "screw_clearance": 2.9,
     "fit": 0.15,
     "vent": {
@@ -110,9 +110,9 @@ BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三�
 | 字段 | 默认值 | 范围 | 说明 |
 | --- | ---: | --- | --- |
 | `panel_thickness` | 3 mm | 1–10 | 亚克力板厚度 |
-| `clearance` | 6 mm | 1–60 | 板边到内壁的间隙 |
-| `bottom_gap` | 8 mm | 0–100 | 底板到板底面的下固定柱长度 |
-| `top_gap` | 20 mm | 2–180 | 板顶面到顶板内侧的上固定柱长度 |
+| `clearance` | 2 mm | 1–60 | 板边到内壁的间隙；默认紧凑贴合 |
+| `bottom_gap` | 6 mm | 0–100 | 底板到板底面的下固定柱长度 |
+| `top_gap` | 16 mm | 2–180 | 板顶面到顶板内侧的上固定柱长度 |
 | `screw_clearance` | 3.4 mm | 2–8 | 顶/底板和一体固定柱的螺丝过孔直径 |
 | `fit` | 0.15 mm | 0–0.8 | 榫舌/榫槽配合间隙 |
 | `vent.enabled` | true | boolean | 是否生成通风槽 |
@@ -160,7 +160,7 @@ outerHeight = innerHeight + 2 × panel_thickness
 导入只有 `board` / `holes` 的旧版 `.board.json` 时：
 
 - 保留板子尺寸和孔位；
-- 自动补充默认外壳参数（3 mm 板材、6 mm 间隙等）；
+- 自动补充默认外壳参数（3 mm 板材、2 mm 板边间隙、6 mm 底部净空、16 mm 顶部净空）；
 - 自动补充空的 `openings` 数组；
 - 导出时升级为 `.case.json` version 2。
 

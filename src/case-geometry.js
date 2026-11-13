@@ -176,7 +176,7 @@ function tabIntervals(length, options = {}) {
     maxCount = 5,
   } = options;
   const usable = length - margin * 2;
-  if (usable < 14) return [];
+  if (usable < Math.max(8, minWidth * 1.6)) return [];
 
   let count = clamp(Math.round(usable / target), 1, maxCount);
   while (count > 1 && usable / count < minWidth * 1.7) count -= 1;
@@ -277,10 +277,10 @@ function buildSidePanels(state, dims, warnings) {
     maxCount: 5,
   };
   const verticalTabOptions = {
-    margin: Math.max(8, t + 6),
-    target: 18,
-    minWidth: 5,
-    maxWidth: 9,
+    margin: Math.max(5, t + 3),
+    target: 16,
+    minWidth: 4.5,
+    maxWidth: 8,
     maxCount: 3,
   };
 
@@ -419,7 +419,7 @@ function addOpenings(panels, state, dims, warnings) {
     }
 
     const marginX = Math.max(6, dims.panelThickness + fit + 4);
-    const marginY = Math.max(6, dims.panelThickness + fit + 3);
+    const marginY = Math.max(4, dims.panelThickness + fit + 1.5);
     const mirror = opening.side === 'back' || opening.side === 'right';
     const cx = panel.width / 2 + (mirror ? -opening.u : opening.u);
     const cy = panel.height / 2 + opening.v;

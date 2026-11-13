@@ -42,9 +42,9 @@ export const CASE_LIMITS = Object.freeze({
 
 export const DEFAULT_ENCLOSURE = Object.freeze({
   panel_thickness: 3,
-  clearance: 6,
-  bottom_gap: 8,
-  top_gap: 20,
+  clearance: 2,
+  bottom_gap: 6,
+  top_gap: 16,
   screw_clearance: 3.4,
   fit: 0.15,
   vent: {

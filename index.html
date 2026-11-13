@@ -148,21 +148,21 @@
                 <label class="field">
                   <span class="field-label">板边间隙 <em>C</em></span>
                   <span class="input-shell">
-                    <input id="clearanceInput" data-case="clearance" type="number" min="1" max="60" step="0.5" inputmode="decimal" value="6" />
+                    <input id="clearanceInput" data-case="clearance" type="number" min="1" max="60" step="0.5" inputmode="decimal" value="2" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
                 <label class="field">
                   <span class="field-label">底部净空 <em>B</em></span>
                   <span class="input-shell">
-                    <input id="bottomGapInput" data-case="bottom_gap" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="8" />
+                    <input id="bottomGapInput" data-case="bottom_gap" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="6" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
                 <label class="field">
                   <span class="field-label">顶部净空 <em>H</em></span>
                   <span class="input-shell">
-                    <input id="topGapInput" data-case="top_gap" type="number" min="2" max="180" step="0.5" inputmode="decimal" value="20" />
+                    <input id="topGapInput" data-case="top_gap" type="number" min="2" max="180" step="0.5" inputmode="decimal" value="16" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
@@ -171,14 +171,14 @@
               <div class="derived-row">
                 <div>
                   <span>外壳外形</span>
-                  <b id="outerDimensions">103 × 74 × 35.6</b>
+                  <b id="outerDimensions">95 × 66 × 29.6</b>
                 </div>
                 <div>
                   <span>内腔净高</span>
-                  <b id="innerHeight">29.6 mm</b>
+                  <b id="innerHeight">23.6 mm</b>
                 </div>
               </div>
-              <p class="field-note" id="enclosureNote">外壳尺寸由开发板尺寸、板边间隙和板厚自动推导。</p>
+              <p class="field-note" id="enclosureNote">默认采用紧凑贴合尺寸，可增大板边间隙和净空容纳连接器。</p>
             </section>
 
             <section class="panel-section">
@@ -351,7 +351,7 @@
           <footer class="export-bar">
             <div class="export-meta">
               <span class="export-label">导出</span>
-              <span class="export-filename" id="exportFilename">board-case-103x74x35.6</span>
+              <span class="export-filename" id="exportFilename">board-case-95x66x29.6</span>
               <span class="export-status" id="exportStatus">准备就绪</span>
             </div>
             <div class="export-actions export-actions-4">

@@ -45,7 +45,8 @@ import {
   saveThemeMode,
 } from './theme.js';
 
-const STORAGE_KEY = 'boardforge.case-autosave.v1';
+const STORAGE_KEY = 'boardforge.case-autosave.v2';
+const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
 const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
 
@@ -1312,19 +1313,42 @@ async function importBoardFile(file) {
 /* ── Autosave ───────────────────────────────────────────────────────────── */
 
 function readStoredState() {
-  for (const key of [STORAGE_KEY, LEGACY_STORAGE_KEY]) {
+  for (const key of [STORAGE_KEY, LEGACY_CASE_STORAGE_KEY, LEGACY_STORAGE_KEY]) {
     try {
       const raw = localStorage.getItem(key);
       if (!raw) continue;
       const parsed = JSON.parse(raw);
       if (!isPlainObject(parsed)) continue;
       const result = normalizeCaseState(parsed);
-      if (result.state) return result;
+      if (!result.state) continue;
+      if (key === LEGACY_CASE_STORAGE_KEY) tightenLegacyDefaultEnclosure(result.state);
+      return result;
     } catch {
       // Try the next candidate.
     }
   }
   return null;
+}
+
+/**
+ * The first enclosure release used a much looser default fit. Tighten that
+ * exact, untouched default once when migrating the old autosave key, without
+ * overriding deliberate custom values.
+ */
+function tightenLegacyDefaultEnclosure(candidate) {
+  const enclosure = candidate.enclosure;
+  const isOldDefault =
+    enclosure.panel_thickness === 3 &&
+    enclosure.clearance === 6 &&
+    enclosure.bottom_gap === 8 &&
+    enclosure.top_gap === 20 &&
+    enclosure.screw_clearance === 3.4 &&
+    enclosure.fit === 0.15 &&
+    candidate.openings.length === 0;
+  if (!isOldDefault) return;
+  enclosure.clearance = 2;
+  enclosure.bottom_gap = 6;
+  enclosure.top_gap = 16;
 }
 
 function queueSave() {

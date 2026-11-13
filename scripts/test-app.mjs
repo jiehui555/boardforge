@@ -135,9 +135,9 @@ try {
   ok(initial.diagnostics.lowerStandoffCount === 4, 'four lower standoffs are generated');
   ok(initial.diagnostics.upperStandoffCount === 4, 'four upper standoffs are generated');
   ok(initial.diagnostics.warnings.length === 0, 'default enclosure has no warnings');
-  ok(initial.diagnostics.outer.width === 103, 'default outer width is 103 mm');
-  ok(initial.diagnostics.outer.depth === 74, 'default outer depth is 74 mm');
-  ok(initial.diagnostics.outer.height === 35.6, 'default outer height is 35.6 mm');
+  ok(initial.diagnostics.outer.width === 95, 'default outer width is a snug 95 mm');
+  ok(initial.diagnostics.outer.depth === 66, 'default outer depth is a snug 66 mm');
+  ok(initial.diagnostics.outer.height === 29.6, 'default outer height is 29.6 mm');
   ok(initial.diagnostics.boardWatertight, 'board reference remains watertight');
   ok((await page.locator('#modelStatusText').textContent()).includes('6 面板'), 'status reports six panels');
   ok((await page.evaluate(() => window.boardForge.getMode())) === 'dark', 'default mode is dark');
@@ -191,8 +191,8 @@ try {
   await page.locator('#panelThicknessInput').fill('4');
   await waitIdle();
   const thicker = await diagnostics();
-  ok(thicker.outer.width === 105 && thicker.outer.depth === 76, 'panel thickness increases outer dimensions');
-  ok(thicker.outer.height === 37.6, 'panel thickness increases outer height');
+  ok(thicker.outer.width === 97 && thicker.outer.depth === 68, 'panel thickness increases outer dimensions');
+  ok(thicker.outer.height === 31.6, 'panel thickness increases outer height');
 
   await page.locator('#panelThicknessInput').fill('3');
   await page.locator('#clearanceInput').fill('8');
@@ -322,7 +322,10 @@ try {
   const stl = parseBinaryStl(stlBuffer);
   const exportDiagnostics = await diagnostics();
   ok(stl.triangles > exportDiagnostics.triangleCount, 'assembly STL includes panels and hardware');
-  ok(stl.maxZ > 35, 'assembly STL includes the upper hardware envelope');
+  ok(
+    stl.maxZ > exportDiagnostics.outer.height,
+    'assembly STL includes the upper hardware envelope',
+  );
 
   // Import the exported case document.
   const imported = structuredClone(exportedJson);

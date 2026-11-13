@@ -40,14 +40,14 @@ ok(defaults.format === CASE_FORMAT, 'case document format is boardforge-case');
 ok(defaults.units === 'mm', 'case units are mm');
 ok(defaults.holes.length === 4, 'default board has four mounting holes');
 ok(defaults.enclosure.panel_thickness === 3, 'default acrylic thickness is 3 mm');
-ok(defaults.enclosure.clearance === 6, 'default edge clearance is 6 mm');
+ok(defaults.enclosure.clearance === 2, 'default edge clearance is a snug 2 mm');
 
 const dimensions = deriveCaseDimensions(defaults);
-ok(dimensions.outerWidth === 103, 'default outer width is derived correctly');
-ok(dimensions.outerDepth === 74, 'default outer depth is derived correctly');
-ok(dimensions.outerHeight === 35.6, 'default outer height is derived correctly');
-ok(dimensions.innerHeight === 29.6, 'default inner height is derived correctly');
-ok(caseFileStem(defaults, dimensions) === 'board-case-103x74x35.6', 'case filename is derived from outer dimensions');
+ok(dimensions.outerWidth === 95, 'default outer width is derived correctly');
+ok(dimensions.outerDepth === 66, 'default outer depth is derived correctly');
+ok(dimensions.outerHeight === 29.6, 'default outer height is derived correctly');
+ok(dimensions.innerHeight === 23.6, 'default inner height is derived correctly');
+ok(caseFileStem(defaults, dimensions) === 'board-case-95x66x29.6', 'case filename is derived from outer dimensions');
 
 // Round-trip and legacy board migration.
 const roundTrip = normalizeCaseState(toCaseDocument(defaults, { touch: false }));

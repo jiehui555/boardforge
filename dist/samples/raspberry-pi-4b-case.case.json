@@ -34,9 +34,9 @@
   ],
   "enclosure": {
     "panel_thickness": 3,
-    "clearance": 6,
-    "bottom_gap": 8,
-    "top_gap": 20,
+    "clearance": 2,
+    "bottom_gap": 6,
+    "top_gap": 16,
     "screw_clearance": 2.9,
     "fit": 0.15,
     "vent": {
