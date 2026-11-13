@@ -427,6 +427,44 @@ export function deriveCaseDimensions(state) {
   };
 }
 
+export function sidePanelWidth(side, dimensions) {
+  return side === 'left' || side === 'right'
+    ? dimensions.outerDepth
+    : dimensions.innerWidth;
+}
+
+export function openingSafeMargins(
+  state,
+  dimensions = deriveCaseDimensions(state),
+) {
+  const t = dimensions.panelThickness;
+  const fit = Number(state.enclosure.fit);
+  return {
+    x: Math.max(6, t + fit + 4),
+    y: Math.max(4, t + fit + 1.5),
+  };
+}
+
+/**
+ * Opening parameters use the panel's own view: +U is to the viewer's right.
+ * Back uses an unmirrored local X, while left/right use mirrored local X.
+ */
+export function openingToPanelLocal(opening, panelWidth, panelHeight) {
+  const mirror = opening.side === 'left' || opening.side === 'right';
+  return {
+    x: panelWidth / 2 + (mirror ? -opening.u : opening.u),
+    y: panelHeight / 2 + opening.v,
+  };
+}
+
+export function panelLocalToOpening(side, x, y, panelWidth, panelHeight) {
+  const mirror = side === 'left' || side === 'right';
+  return {
+    u: mirror ? panelWidth / 2 - x : x - panelWidth / 2,
+    v: y - panelHeight / 2,
+  };
+}
+
 export function caseFileStem(state, dimensions = deriveCaseDimensions(state)) {
   const rawName = typeof state.name === 'string' ? state.name.trim() : '';
   const isUnnamed =

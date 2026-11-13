@@ -3,6 +3,8 @@ import { buildBoardModel } from './board-geometry.js';
 import {
   SIDE_LABELS,
   deriveCaseDimensions,
+  openingSafeMargins,
+  openingToPanelLocal,
   validBoardMountHoles,
 } from './case-schema.js';
 
@@ -408,7 +410,6 @@ function buildSidePanels(state, dims, warnings) {
 
 function addOpenings(panels, state, dims, warnings) {
   const byId = new Map(panels.map((panel) => [panel.id, panel]));
-  const fit = state.enclosure.fit;
 
   for (let index = 0; index < state.openings.length; index += 1) {
     const opening = state.openings[index];
@@ -418,11 +419,12 @@ function addOpenings(panels, state, dims, warnings) {
       continue;
     }
 
-    const marginX = Math.max(6, dims.panelThickness + fit + 4);
-    const marginY = Math.max(4, dims.panelThickness + fit + 1.5);
-    const mirror = opening.side === 'back' || opening.side === 'right';
-    const cx = panel.width / 2 + (mirror ? -opening.u : opening.u);
-    const cy = panel.height / 2 + opening.v;
+    const margins = openingSafeMargins(state, dims);
+    const marginX = margins.x;
+    const marginY = margins.y;
+    const center = openingToPanelLocal(opening, panel.width, panel.height);
+    const cx = center.x;
+    const cy = center.y;
     const halfWidth = opening.shape === 'circle' ? opening.diameter / 2 : opening.width / 2;
     const halfHeight = opening.shape === 'circle' ? opening.diameter / 2 : opening.height / 2;
 
@@ -458,6 +460,18 @@ function addOpenings(panels, state, dims, warnings) {
             type: 'opening',
             sourceIndex: index,
           });
+
+    const conflict = panel.holes.find(
+      (existing) =>
+        existing.type === 'opening' && boxOverlap(existing.bounds, hole.bounds, 0.25),
+    );
+    if (conflict) {
+      warnings.push(
+        `第 ${index + 1} 个开孔与第 ${conflict.sourceIndex + 1} 个开孔重叠，已跳过。`,
+      );
+      continue;
+    }
+
     panel.holes.push(hole);
   }
 }
@@ -602,17 +616,35 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
   return { panels, warnings };
 }
 
-function buildBoardMounts(state) {
-  const mounts = validBoardMountHoles(state);
+function buildBoardMounts(state, warnings) {
+  const holes = validBoardMountHoles(state);
   const panelHoleDiameter = state.enclosure.screw_clearance;
-  return mounts.map((hole) => ({
-    x: hole.x,
-    y: hole.y,
-    diameter: panelHoleDiameter,
-    boardHoleDiameter: hole.diameter,
-    standoffRadius: Math.max(2.3, panelHoleDiameter / 2 + 1.4),
-    boardHoleIndex: hole.index,
-  }));
+  const standoffRadius = Math.max(2.3, panelHoleDiameter / 2 + 1.4);
+  const minimumSpacing = Math.max(panelHoleDiameter + 1, standoffRadius * 2 + 1);
+  const accepted = [];
+
+  for (const hole of holes) {
+    const collision = accepted.find(
+      (other) =>
+        Math.hypot(other.x - hole.x, other.y - hole.y) < minimumSpacing,
+    );
+    if (collision) {
+      warnings.push(
+        `第 ${hole.index + 1} 个板孔与第 ${collision.boardHoleIndex + 1} 个板孔 ` +
+          '距离过近，固定柱已跳过。',
+      );
+      continue;
+    }
+    accepted.push({
+      x: hole.x,
+      y: hole.y,
+      diameter: panelHoleDiameter,
+      boardHoleDiameter: hole.diameter,
+      standoffRadius,
+      boardHoleIndex: hole.index,
+    });
+  }
+  return accepted;
 }
 
 function buildHardware(dims, mounts) {
@@ -635,6 +667,13 @@ function buildHardware(dims, mounts) {
       radius: mount.standoffRadius,
       height: dims.topGap,
     }));
+  const connectorShafts = mounts.map((mount) => ({
+    x: mount.x,
+    y: mount.y,
+    z: dims.boardBottomZ + dims.boardThickness / 2,
+    radius: Math.max(0.6, Math.min(1.6, mount.boardHoleDiameter / 2 - 0.1)),
+    height: Math.max(0.05, dims.boardThickness),
+  }));
   const screwHeads = [];
   for (const mount of mounts) {
     screwHeads.push({
@@ -652,7 +691,7 @@ function buildHardware(dims, mounts) {
       height: 1.2,
     });
   }
-  return { lowerStandoffs, upperStandoffs, screwHeads };
+  return { lowerStandoffs, upperStandoffs, connectorShafts, screwHeads };
 }
 
 /**
@@ -665,7 +704,7 @@ export function buildCaseModel(state, options = {}) {
   const sideData = buildSidePanels(state, dims, warnings);
   const panels = [...sideData.panels];
 
-  const mounts = buildBoardMounts(state);
+  const mounts = buildBoardMounts(state, warnings);
   const columnHoles = mounts.map((mount) =>
     panelHoleAtPoint(
       mount.x + dims.outerWidth / 2,
@@ -697,8 +736,11 @@ export function buildCaseModel(state, options = {}) {
       : panel.geometry.attributes.position.count / 3;
   }
 
-  const boardModel = buildBoardModel(state);
-  warnings.push(...boardModel.warnings);
+  const boardSource = options.boardModel || buildBoardModel(state);
+  const boardGeometry = options.boardModel
+    ? boardSource.geometry.clone()
+    : boardSource.geometry;
+  warnings.push(...boardSource.warnings);
   if (mounts.length === 0) {
     warnings.push('开发板没有有效安装孔，无法生成一体固定柱和顶/底螺丝。');
   } else if (mounts.length < 3) {
@@ -712,11 +754,12 @@ export function buildCaseModel(state, options = {}) {
     dimensions: dims,
     panels,
     board: {
-      geometry: boardModel.geometry,
+      geometry: boardGeometry,
       z: dims.boardCenterZ,
-      diagnostics: boardModel.diagnostics,
-      analysis: boardModel.analysis,
+      diagnostics: boardSource.diagnostics,
+      analysis: boardSource.analysis,
     },
+    boardFromCache: Boolean(options.boardModel),
     hardware,
     mounts,
     warnings,
@@ -837,6 +880,18 @@ export function buildAssemblyGeometry(model) {
         standoff.y,
         standoff.z,
         6,
+      ),
+    );
+  }
+  for (const shaft of model.hardware.connectorShafts) {
+    parts.push(
+      hardwareCylinder(
+        shaft.radius,
+        shaft.height,
+        shaft.x,
+        shaft.y,
+        shaft.z,
+        16,
       ),
     );
   }

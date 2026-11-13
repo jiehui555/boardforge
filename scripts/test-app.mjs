@@ -134,7 +134,16 @@ try {
   ok(initial.diagnostics.mountCount === 4, 'four board mount positions are used');
   ok(initial.diagnostics.lowerStandoffCount === 4, 'four lower standoffs are generated');
   ok(initial.diagnostics.upperStandoffCount === 4, 'four upper standoffs are generated');
+  ok(initial.diagnostics.connectorShaftCount === 4, 'through-board connectors are generated');
+  ok(initial.diagnostics.boardFromCache === false, 'first build creates the board reference');
   ok(initial.diagnostics.warnings.length === 0, 'default enclosure has no warnings');
+  ok((await page.locator('#panelMap svg').count()) === 1, '2D side-panel editor renders');
+  ok((await page.locator('.panel-side-tab').count()) === 4, 'all four panels are selectable in the 2D editor');
+  ok((await page.locator('#bomList li').count()) === 5, 'hardware BOM is populated');
+  ok(
+    (await page.locator('#hardwareSummary').textContent()).includes('固定柱'),
+    'BOM summary reports the integrated columns',
+  );
   ok(initial.diagnostics.outer.width === 95, 'default outer width is a snug 95 mm');
   ok(initial.diagnostics.outer.depth === 66, 'default outer depth is a snug 66 mm');
   ok(initial.diagnostics.outer.height === 29.6, 'default outer height is 29.6 mm');
@@ -258,6 +267,7 @@ try {
   const thicker = await diagnostics();
   ok(thicker.outer.width === 97 && thicker.outer.depth === 68, 'panel thickness increases outer dimensions');
   ok(thicker.outer.height === 31.6, 'panel thickness increases outer height');
+  ok(thicker.boardFromCache, 'enclosure-only edits reuse the cached board reference');
 
   await page.locator('#panelThicknessInput').fill('3');
   await page.locator('#clearanceInput').fill('8');
@@ -274,7 +284,9 @@ try {
   await waitIdle();
   const longerBoard = await state();
   ok(longerBoard.board.length === 90, 'board length can be edited');
-  ok((await diagnostics()).outer.width === 108, 'board length feeds the enclosure dimensions');
+  const boardChangedDiagnostics = await diagnostics();
+  ok(boardChangedDiagnostics.outer.width === 108, 'board length feeds the enclosure dimensions');
+  ok(!boardChangedDiagnostics.boardFromCache, 'board edits invalidate the cached reference model');
   await page.locator('#lengthInput').fill('85');
   await waitIdle();
 
@@ -287,11 +299,38 @@ try {
   await card.locator('[data-opening-field="v"]').fill('0');
   await card.locator('[data-opening-field="width"]').fill('16');
   await card.locator('[data-opening-field="height"]').fill('9');
+  await page.waitForFunction(
+    () =>
+      window.boardForge.getDiagnostics()?.panels.find((panel) => panel.id === 'front')
+        ?.holes >= 1,
+    { timeout: 15_000 },
+  );
   await waitIdle();
   let currentDiagnostics = await diagnostics();
   const frontPanel = currentDiagnostics.panels.find((panel) => panel.id === 'front');
   ok(frontPanel.holes >= 1, 'valid opening is cut into the front panel');
   ok(currentDiagnostics.warnings.length === 0, 'valid opening produces no warning');
+  ok((await page.locator('#panelMapTitle').textContent()) === '前面板', '2D editor follows the active panel');
+
+  // Drag the cut-out directly in the 2D side-panel editor.
+  const openingBeforeDrag = (await state()).openings[0];
+  const mapShape = page.locator('[data-map-opening="0"]');
+  await mapShape.scrollIntoViewIfNeeded();
+  const mapBox = await mapShape.boundingBox();
+  if (mapBox) {
+    const dragX = mapBox.x + mapBox.width / 2;
+    const dragY = mapBox.y + mapBox.height / 2;
+    await page.mouse.move(dragX, dragY);
+    await page.mouse.down();
+    await page.mouse.move(dragX + 18, dragY, { steps: 6 });
+    await page.mouse.up();
+    await waitIdle();
+    const openingAfterDrag = (await state()).openings[0];
+    ok(
+      openingAfterDrag.u !== openingBeforeDrag.u,
+      'dragging an opening in the 2D editor updates U',
+    );
+  }
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
   await page.screenshot({ path: join(screenshots, 'case-opening.png') });
 
@@ -309,11 +348,21 @@ try {
 
   // Change opening side and shape.
   await card.locator('[data-opening-field="side"]').selectOption('left');
+  await page.waitForFunction(
+    () =>
+      window.boardForge.getDiagnostics()?.panels.find((panel) => panel.id === 'left')
+        ?.holes >= 1,
+    { timeout: 15_000 },
+  );
   await waitIdle();
   currentDiagnostics = await diagnostics();
   ok(
     currentDiagnostics.panels.find((panel) => panel.id === 'left').holes >= 1,
     'opening can be moved to another side',
+  );
+  ok(
+    (await page.locator('[data-opening-side="left"]').getAttribute('aria-selected')) === 'true',
+    '2D editor follows an opening moved to the left panel',
   );
   card = page.locator('.opening-card').first();
   await card.locator('[data-opening-field="shape"]').selectOption('circle');
@@ -322,6 +371,22 @@ try {
   ok(await card.locator('[data-opening-field="diameter"]').isVisible(), 'circle opening exposes a diameter field');
   const openingState = await state();
   ok(openingState.openings[0].shape === 'circle', 'opening shape is stored');
+
+  // Add a common connector preset on the front panel.
+  await page.locator('[data-opening-side="front"]').click();
+  await page.locator('#openingPresetSelect').selectOption('usb-c');
+  await page.locator('#addPresetOpeningButton').click();
+  await waitIdle();
+  const presetOpeningState = await state();
+  const usbCOpening = presetOpeningState.openings.at(-1);
+  ok(
+    usbCOpening.side === 'front' && usbCOpening.width === 9 && usbCOpening.height === 3.6,
+    'USB-C preset adds a correctly sized opening to the active panel',
+  );
+  ok(
+    (await page.locator('.opening-card').count()) === 1,
+    'opening list is filtered to the active side panel',
+  );
 
   // Vent toggle.
   const ventTopBefore = (await diagnostics()).panels.find((panel) => panel.id === 'top').holes;
@@ -346,12 +411,27 @@ try {
   await waitIdle();
 
   // Exploded view.
+  await page.locator('[data-view="iso"]').click();
+  await page.waitForTimeout(700);
   await page.locator('#explodeButton').click();
   await page.waitForTimeout(650);
   ok((await page.evaluate(() => window.boardForge.getExploded())) === true, 'exploded view can be enabled');
   ok((await page.locator('#explodeButton').getAttribute('aria-pressed')) === 'true', 'explode button updates its state');
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
   await page.screenshot({ path: join(screenshots, 'case-exploded.png') });
+
+  // 2D cut-sheet preview.
+  await page.locator('#previewCutButton').scrollIntoViewIfNeeded();
+  await page.waitForTimeout(150);
+  await page.locator('#previewCutButton').click();
+  await page.waitForTimeout(300);
+  ok(await page.locator('#sheetModal').isVisible(), 'cut-sheet preview opens');
+  ok((await page.locator('#sheetPreview svg').count()) === 1, 'cut-sheet preview renders an SVG');
+  ok((await page.locator('#sheetSize').textContent()).includes('mm'), 'cut-sheet preview reports sheet dimensions');
+  await page.screenshot({ path: join(screenshots, 'case-cut-sheet.png') });
+  await page.locator('#sheetCloseButton').click();
+  await page.waitForTimeout(150);
+  ok(await page.locator('#sheetModal').isHidden(), 'cut-sheet preview closes');
 
   // Export JSON.
   const jsonPath = join(work, 'case.case.json');
@@ -360,7 +440,7 @@ try {
   const exportedJson = JSON.parse(await readFile(jsonPath, 'utf8'));
   ok(exportedJson.version === 2 && exportedJson.format === 'boardforge-case', 'JSON uses case format');
   ok(exportedJson.enclosure.panel_thickness === 3, 'JSON contains enclosure settings');
-  ok(exportedJson.openings.length === 1, 'JSON contains side-panel openings');
+  ok(exportedJson.openings.length === 2, 'JSON contains side-panel openings');
   ok(exportedJson.board.length === 85, 'JSON contains board reference');
 
   // Export SVG, DXF and assembly STL.

@@ -8,6 +8,7 @@ import {
   createOpening,
   deriveCaseDimensions,
   normalizeCaseState,
+  openingToPanelLocal,
   toCaseDocument,
 } from '../src/case-schema.js';
 import {
@@ -93,6 +94,24 @@ const normalizedOpening = normalizeCaseState(
 );
 ok(normalizedOpening.state.openings.length === 1, 'openings survive JSON round-trip');
 
+const panelCenterTest = { side: 'front', u: 10, v: 0, shape: 'circle', diameter: 10 };
+ok(
+  openingToPanelLocal(panelCenterTest, 89, 23.6).x === 54.5,
+  'front-panel U maps to local X',
+);
+ok(
+  openingToPanelLocal({ ...panelCenterTest, side: 'back' }, 89, 23.6).x === 54.5,
+  'back-panel U remains positive from its own view',
+);
+ok(
+  openingToPanelLocal({ ...panelCenterTest, side: 'left' }, 66, 23.6).x === 23,
+  'left-panel U is mirrored into its local X',
+);
+ok(
+  openingToPanelLocal({ ...panelCenterTest, side: 'right' }, 66, 23.6).x === 23,
+  'right-panel U is mirrored into its local X',
+);
+
 // Build complete six-panel model.
 const model = buildCaseModel(defaults);
 ok(model.panelCount === 6, 'enclosure has six acrylic panels');
@@ -100,6 +119,7 @@ ok(model.columnCount === 4, 'enclosure has four integrated mounting columns');
 ok(model.mounts.length === 4, 'board mounting holes generate four integrated columns');
 ok(model.hardware.lowerStandoffs.length === 4, 'each column has a lower standoff');
 ok(model.hardware.upperStandoffs.length === 4, 'each column has an upper standoff');
+ok(model.hardware.connectorShafts.length === 4, 'each column has a through-board connector');
 ok(model.hardware.screwHeads.length === 8, 'each column has top and bottom panel screws');
 ok(model.board.diagnostics.watertight, 'board reference remains watertight');
 ok(model.warnings.length === 0, 'default enclosure builds without warnings');
@@ -148,6 +168,19 @@ ok(
   'out-of-bounds side opening is reported',
 );
 
+const overlapOpeningState = createDefaultCaseState();
+overlapOpeningState.openings.push(
+  { ...createOpening('front', 'circle'), u: 0, v: 0, diameter: 12 },
+  { ...createOpening('front', 'circle'), u: 3, v: 0, diameter: 12 },
+);
+const overlapOpeningModel = buildCaseModel(overlapOpeningState);
+const overlapFront = overlapOpeningModel.panels.find((panel) => panel.id === 'front');
+ok(overlapFront.holes.length === 1, 'overlapping cut-outs are rejected');
+ok(
+  overlapOpeningModel.warnings.some((warning) => warning.includes('重叠')),
+  'overlapping cut-outs produce a warning',
+);
+
 // Vent toggle changes top/bottom hole counts.
 const noVentState = createDefaultCaseState();
 noVentState.enclosure.vent.enabled = false;
@@ -163,6 +196,19 @@ ok(noMountModel.columnCount === 0, 'no board holes means no integrated columns')
 ok(
   noMountModel.warnings.some((warning) => warning.includes('安装孔')),
   'no board holes produces an explicit warning',
+);
+
+// Duplicate board holes are rejected as fixed-column positions.
+const duplicateHoleState = createDefaultCaseState();
+duplicateHoleState.holes[1] = {
+  ...duplicateHoleState.holes[0],
+  x: duplicateHoleState.holes[0].x + 0.5,
+};
+const duplicateHoleModel = buildCaseModel(duplicateHoleState);
+ok(duplicateHoleModel.columnCount === 3, 'too-close board holes are deduplicated');
+ok(
+  duplicateHoleModel.warnings.some((warning) => warning.includes('距离过近')),
+  'too-close board holes produce a warning',
 );
 
 // Presets.
@@ -211,9 +257,13 @@ for (const panel of noVentModel.panels) panel.geometry.dispose();
 noVentModel.board.geometry.dispose();
 for (const panel of noMountModel.panels) panel.geometry.dispose();
 noMountModel.board.geometry.dispose();
+for (const panel of duplicateHoleModel.panels) panel.geometry.dispose();
+duplicateHoleModel.board.geometry.dispose();
 for (const panel of openingModel.panels) panel.geometry.dispose();
 openingModel.board.geometry.dispose();
 for (const panel of badOpeningModel.panels) panel.geometry.dispose();
 badOpeningModel.board.geometry.dispose();
+for (const panel of overlapOpeningModel.panels) panel.geometry.dispose();
+overlapOpeningModel.board.geometry.dispose();
 
 console.log(`Case geometry/schema checks passed: ${checks}`);

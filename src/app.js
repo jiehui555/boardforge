@@ -20,6 +20,10 @@ import {
   createOpening,
   deriveCaseDimensions,
   normalizeCaseState,
+  openingSafeMargins,
+  openingToPanelLocal,
+  panelLocalToOpening,
+  sidePanelWidth,
   toCaseDocument,
 } from './case-schema.js';
 import {
@@ -27,9 +31,10 @@ import {
   buildCaseModel,
   disposeCaseModel,
 } from './case-geometry.js';
+import { buildBoardModel } from './board-geometry.js';
 import { BoardPreview } from './preview.js';
 import { createBinaryStl } from './stl-export.js';
-import { buildCutDxf, buildCutSvg } from './vector-export.js';
+import { buildCutDxf, buildCutSvg, cutSheetBounds } from './vector-export.js';
 import {
   DEFAULT_THEME_COLOR,
   DEFAULT_THEME_MODE,
@@ -50,6 +55,15 @@ const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
 const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
+
+const OPENING_PRESETS = Object.freeze([
+  { id: 'usb-c', label: 'USB-C', shape: 'rect', width: 9, height: 3.6 },
+  { id: 'usb-a', label: 'USB-A', shape: 'rect', width: 14, height: 6.5 },
+  { id: 'hdmi', label: 'HDMI', shape: 'rect', width: 15, height: 6 },
+  { id: 'rj45', label: 'RJ45 网口', shape: 'rect', width: 16, height: 13 },
+  { id: 'dc', label: 'DC 5.5 电源孔', shape: 'circle', diameter: 9 },
+  { id: 'audio', label: '3.5 mm 音频孔', shape: 'circle', diameter: 6 },
+]);
 
 const dom = {
   caseName: document.querySelector('#caseName'),
@@ -76,6 +90,16 @@ const dom = {
   openingCount: document.querySelector('#openingCount'),
   openingsHint: document.querySelector('#openingsHint'),
   addOpeningButton: document.querySelector('#addOpeningButton'),
+  openingSideTabs: document.querySelector('#openingSideTabs'),
+  panelMap: document.querySelector('#panelMap'),
+  panelMapTitle: document.querySelector('#panelMapTitle'),
+  panelMapDims: document.querySelector('#panelMapDims'),
+  openingPresetSelect: document.querySelector('#openingPresetSelect'),
+  addPresetOpeningButton: document.querySelector('#addPresetOpeningButton'),
+  hardwareSummary: document.querySelector('#hardwareSummary'),
+  bomList: document.querySelector('#bomList'),
+  bomNote: document.querySelector('#bomNote'),
+  copyBomButton: document.querySelector('#copyBomButton'),
 
   boardDetails: document.querySelector('#boardDetails'),
   boardSummary: document.querySelector('#boardSummary'),
@@ -107,10 +131,17 @@ const dom = {
   fileInput: document.querySelector('#fileInput'),
   exportFilename: document.querySelector('#exportFilename'),
   exportStatus: document.querySelector('#exportStatus'),
+  previewCutButton: document.querySelector('#previewCutButton'),
   exportJsonButton: document.querySelector('#exportJsonButton'),
   exportSvgButton: document.querySelector('#exportSvgButton'),
   exportDxfButton: document.querySelector('#exportDxfButton'),
   exportStlButton: document.querySelector('#exportStlButton'),
+  sheetModal: document.querySelector('#sheetModal'),
+  sheetCloseButton: document.querySelector('#sheetCloseButton'),
+  sheetSize: document.querySelector('#sheetSize'),
+  sheetPreview: document.querySelector('#sheetPreview'),
+  sheetExportSvgButton: document.querySelector('#sheetExportSvgButton'),
+  sheetExportDxfButton: document.querySelector('#sheetExportDxfButton'),
 
   previewCanvas: document.querySelector('#previewCanvas'),
   previewName: document.querySelector('#previewName'),
@@ -155,6 +186,12 @@ let dragDepth = 0;
 let activeView = 'iso';
 let exploded = false;
 let currentProjection = readProjectionMode();
+let activeOpeningSide = 'front';
+let selectedOpeningIndex = null;
+let openingDrag = null;
+let currentBomText = '';
+let sheetReturnFocus = null;
+let boardCache = null;
 const pendingInvalid = new Set();
 
 /* ── Boot ───────────────────────────────────────────────────────────────── */
@@ -171,6 +208,7 @@ function bootstrap() {
   selectedPresetId = detectPresetId(state);
 
   renderPresets();
+  renderOpeningPresetOptions();
   syncFormFromState();
   syncProjectionUi();
   bindEvents();
@@ -316,6 +354,8 @@ function syncFormFromState() {
   updateDerivedUi();
   updateNameUi();
   renderHoles();
+  activeOpeningSide = 'front';
+  selectedOpeningIndex = null;
   renderOpenings();
   clearAllFieldErrors();
   refreshPresetActive();
@@ -352,6 +392,8 @@ function updateDerivedUi() {
     `${formatNumber(state.board.thickness)} mm · ${state.holes.length} 孔`;
   dom.holeCount.textContent = `${state.holes.length} / ${MAX_HOLES}`;
   updateHardwareNote();
+  updateBom();
+  renderOpeningMap();
   updateFilenameUi();
 }
 
@@ -385,6 +427,86 @@ function updateHardwareNote() {
   dom.hardwareNote.textContent =
     `${usable.length} 组固定柱穿过开发板孔位，上下锁紧顶板与底板。`;
   dom.hardwareNote.classList.remove('is-warning');
+}
+
+function updateBom(actualMountCount = null) {
+  const dims = deriveCaseDimensions(state);
+  const usable = analyseHoles(state).printable;
+  const count = actualMountCount ?? usable.length;
+  const t = dims.panelThickness;
+  const clearance = Number(state.enclosure.screw_clearance);
+  const screwLabel = clearance >= 3.2 ? 'M3' : clearance >= 2.7 ? 'M2.5' : 'M2';
+  const lowerLength = dims.bottomGap;
+  const upperLength = dims.topGap;
+  const panelScrewLength = Math.max(6, Math.ceil(t + 5));
+  const smallest = count > 0
+    ? Math.min(...usable.map((hole) => hole.diameter))
+    : 0;
+  const rows = [
+    [`${formatNumber(t)} mm 亚克力板`, '6 块'],
+    [`${screwLabel} 下固定柱（双内螺纹）`, `${count} × ${formatNumber(lowerLength)} mm`],
+    [`${screwLabel} 上固定柱（内外螺纹）`, `${count} × ${formatNumber(upperLength)} mm`],
+    [`${screwLabel} 顶/底面板螺丝`, `${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`],
+    [`${screwLabel} 平垫圈`, `${count * 2} 个（建议）`],
+  ];
+
+  dom.hardwareSummary.textContent =
+    count > 0
+      ? `${count} 组一体固定柱 · ${count * 2} 颗 ${screwLabel} 螺丝`
+      : '暂无可用固定柱';
+  dom.bomList.innerHTML = rows
+    .map(
+      ([label, value]) =>
+        `<li><span>${escapeHtml(label)}</span><b>${escapeHtml(value)}</b></li>`,
+    )
+    .join('');
+
+  const incompatible = count > 0 && clearance - smallest > 0.4;
+  if (count === 0) {
+    dom.bomNote.textContent =
+      '缺少有效板孔，无法生成一体固定柱。也可以在板子参考中增加安装孔。';
+    dom.bomNote.classList.add('is-warning');
+  } else if (incompatible) {
+    dom.bomNote.textContent =
+      `开发板最小板孔为 ${formatNumber(smallest)} mm，当前固定柱过孔为 ` +
+      `${formatNumber(clearance)} mm。建议扩孔或改用更小的固定柱。`;
+    dom.bomNote.classList.add('is-warning');
+  } else {
+    dom.bomNote.textContent =
+      `下柱从底板拧入，上柱的螺纹穿过开发板孔与下柱对锁；顶/底各一颗 ${screwLabel} 面板螺丝。螺丝长度按固定柱螺纹深度和面板厚度微调。`;
+    dom.bomNote.classList.remove('is-warning');
+  }
+
+  currentBomText = [
+    'BoardForge 亚克力外壳五金清单',
+    `外壳：${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ${formatNumber(dims.outerHeight)} mm`,
+    `亚克力板：6 块 × ${formatNumber(t)} mm`,
+    `${screwLabel} 下固定柱（双内螺纹）：${count} × ${formatNumber(lowerLength)} mm`,
+    `${screwLabel} 上固定柱（内外螺纹）：${count} × ${formatNumber(upperLength)} mm`,
+    `${screwLabel} 顶/底面板螺丝：${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`,
+    `${screwLabel} 平垫圈：${count * 2} 个（建议）`,
+    `开发板固定柱过孔：${formatNumber(clearance)} mm`,
+  ].join('\n');
+}
+
+async function copyBomText() {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(currentBomText);
+    } else {
+      const area = document.createElement('textarea');
+      area.value = currentBomText;
+      area.style.position = 'fixed';
+      area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+    }
+    toast('五金清单已复制', '可直接粘贴到采购或装配记录。');
+  } catch {
+    toast('复制失败', '浏览器未授予剪贴板权限。', 'error');
+  }
 }
 
 function updateVentUi() {
@@ -743,23 +865,172 @@ function refreshHoleWarnings() {
 
 /* ── Side-panel openings ────────────────────────────────────────────────── */
 
+function renderOpeningPresetOptions() {
+  dom.openingPresetSelect.innerHTML = OPENING_PRESETS.map((preset) => {
+    const size =
+      preset.shape === 'circle'
+        ? `⌀${formatNumber(preset.diameter)}`
+        : `${formatNumber(preset.width)}×${formatNumber(preset.height)}`;
+    return `<option value="${preset.id}">${preset.label} · ${size}</option>`;
+  }).join('');
+}
+
+function renderOpeningSideTabs() {
+  const counts = Object.fromEntries(OPENING_SIDES.map((side) => [side, 0]));
+  for (const opening of state.openings) counts[opening.side] += 1;
+  const errorSides = new Set();
+  for (const path of pendingInvalid) {
+    if (!path.startsWith('openings.')) continue;
+    const index = Number(path.split('.')[1]);
+    const opening = state.openings[index];
+    if (opening) errorSides.add(opening.side);
+  }
+
+  dom.openingSideTabs.innerHTML = OPENING_SIDES.map((side) => {
+    const active = side === activeOpeningSide;
+    return `
+      <button class="panel-side-tab${active ? ' active' : ''}${errorSides.has(side) ? ' has-error' : ''}" type="button"
+        role="tab" aria-selected="${active}" data-opening-side="${side}"
+        title="${SIDE_LABELS[side]}${errorSides.has(side) ? ' · 有参数待修正' : ''}">
+        <span>${SIDE_LABELS[side].replace('面板', '')}</span>
+        <span class="panel-side-tab-count">${counts[side]}</span>
+      </button>`;
+  }).join('');
+}
+
+function chooseGridStep(width, height) {
+  const longest = Math.max(width, height);
+  if (longest > 300) return 50;
+  if (longest > 150) return 20;
+  return 10;
+}
+
+function openingDisplayCenter(opening, panelWidth, panelHeight) {
+  const center = openingToPanelLocal(opening, panelWidth, panelHeight);
+  const mirroredView =
+    opening.side === 'left' || opening.side === 'right';
+  return {
+    x: mirroredView ? panelWidth - center.x : center.x,
+    y: panelHeight - center.y,
+  };
+}
+
+function renderOpeningMap() {
+  const side = activeOpeningSide;
+  const dims = deriveCaseDimensions(state);
+  const width = sidePanelWidth(side, dims);
+  const height = dims.innerHeight;
+  const margins = openingSafeMargins(state, dims);
+  const pad = Math.max(10, Math.min(30, Math.min(width, height) * 0.28));
+  const step = chooseGridStep(width, height);
+  const majorStep = step * 5;
+  const grid = [];
+
+  for (let x = step; x < width; x += step) {
+    const major = Math.abs(x % majorStep) < 1e-6;
+    grid.push(
+      `<line class="panel-grid-line${major ? ' major' : ''}" x1="${x}" y1="0" x2="${x}" y2="${height}" />`,
+    );
+  }
+  for (let y = step; y < height; y += step) {
+    const major = Math.abs(y % majorStep) < 1e-6;
+    grid.push(
+      `<line class="panel-grid-line${major ? ' major' : ''}" x1="0" y1="${y}" x2="${width}" y2="${y}" />`,
+    );
+  }
+
+  const openings = state.openings
+    .map((opening, index) => ({ opening, index }))
+    .filter(({ opening }) => opening.side === side)
+    .map(({ opening, index }) => {
+      const center = openingDisplayCenter(opening, width, height);
+      const selected = index === selectedOpeningIndex;
+      const className = `opening-shape${selected ? ' selected' : ''}`;
+      const labelY = Math.max(-pad * 0.65, Math.min(height + pad * 0.72, center.y + 3));
+      const shape =
+        opening.shape === 'circle'
+          ? `<circle class="${className}" data-map-opening="${index}" cx="${center.x}" cy="${center.y}" r="${opening.diameter / 2}" />`
+          : `<rect class="${className}" data-map-opening="${index}" x="${center.x - opening.width / 2}" y="${center.y - opening.height / 2}" width="${opening.width}" height="${opening.height}" rx="${Math.min(2, opening.width / 4, opening.height / 4)}" />`;
+      return `
+        <g>
+          ${shape}
+          <text class="opening-map-tag" x="${center.x}" y="${center.y}" pointer-events="none">${index + 1}</text>
+          <title>第 ${index + 1} 个开孔 · U ${formatNumber(opening.u)} · V ${formatNumber(opening.v)}</title>
+        </g>`;
+    })
+    .join('');
+
+  dom.panelMapTitle.textContent = SIDE_LABELS[side];
+  dom.panelMapDims.textContent = `${formatNumber(width)} × ${formatNumber(height)} mm`;
+  dom.panelMap.innerHTML = `
+    <svg viewBox="${-pad} ${-pad} ${width + pad * 2} ${height + pad * 2}"
+      role="img" aria-label="${SIDE_LABELS[side]}开孔平面图">
+      <rect class="panel-outline" x="0" y="0" width="${width}" height="${height}" rx="1.5" />
+      ${grid.join('')}
+      <line class="panel-axis" x1="${width / 2}" y1="0" x2="${width / 2}" y2="${height}" />
+      <line class="panel-axis" x1="0" y1="${height / 2}" x2="${width}" y2="${height / 2}" />
+      <text class="panel-axis-label" x="${width - 8}" y="${height / 2 - 5}">U+</text>
+      <text class="panel-axis-label" x="${width / 2 + 9}" y="8">V+</text>
+      <rect class="panel-safe-zone" x="${margins.x}" y="${margins.y}"
+        width="${Math.max(0, width - margins.x * 2)}"
+        height="${Math.max(0, height - margins.y * 2)}" rx="1.5" />
+      ${openings}
+      <text class="panel-dimension-label" x="${width}" y="${height + pad * 0.78}" text-anchor="end">${formatNumber(width)} mm</text>
+      <text class="panel-dimension-label" x="${-pad * 0.35}" y="${height / 2}" text-anchor="middle"
+        transform="rotate(-90 ${-pad * 0.35} ${height / 2})">${formatNumber(height)} mm</text>
+    </svg>`;
+}
+
+function updateSelectedOpeningUi() {
+  dom.openingList.querySelectorAll('.opening-card').forEach((card) => {
+    card.classList.toggle(
+      'is-selected',
+      Number(card.dataset.openingIndex) === selectedOpeningIndex,
+    );
+  });
+  dom.panelMap.querySelectorAll('[data-map-opening]').forEach((shape) => {
+    shape.classList.toggle(
+      'selected',
+      Number(shape.dataset.mapOpening) === selectedOpeningIndex,
+    );
+  });
+}
+
+function selectOpening(index, { focusCard = false } = {}) {
+  selectedOpeningIndex = Number.isInteger(index) ? index : null;
+  updateSelectedOpeningUi();
+  if (focusCard && selectedOpeningIndex !== null) {
+    const card = dom.openingList.querySelector(
+      `.opening-card[data-opening-index="${selectedOpeningIndex}"]`,
+    );
+    card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
 function renderOpenings() {
-  if (state.openings.length === 0) {
+  renderOpeningSideTabs();
+  renderOpeningMap();
+
+  const visible = state.openings
+    .map((opening, index) => ({ opening, index }))
+    .filter(({ opening }) => opening.side === activeOpeningSide);
+
+  if (visible.length === 0) {
     dom.openingList.innerHTML = `
       <div class="opening-empty">
-        <strong>还没有接口开孔</strong>
-        <span>可以添加 USB、HDMI、Type-C 等侧板开口</span>
+        <strong>${SIDE_LABELS[activeOpeningSide]}还没有开孔</strong>
+        <span>可以添加常用接口预设或自定义开孔</span>
       </div>`;
   } else {
-    dom.openingList.innerHTML = state.openings
-      .map((opening, index) => {
+    dom.openingList.innerHTML = visible
+      .map(({ opening, index }) => {
         const isCircle = opening.shape === 'circle';
         const sizeFields = isCircle
           ? `<label class="hole-field"><span>⌀</span><input type="number" data-opening-field="diameter" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.diameter)}" aria-label="第 ${index + 1} 个开孔的直径" /></label>`
           : `<label class="hole-field"><span>宽</span><input type="number" data-opening-field="width" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.width)}" aria-label="第 ${index + 1} 个开孔的宽度" /></label>
              <label class="hole-field"><span>高</span><input type="number" data-opening-field="height" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.height)}" aria-label="第 ${index + 1} 个开孔的高度" /></label>`;
         return `
-          <div class="opening-card" data-opening-index="${index}">
+          <div class="opening-card${index === selectedOpeningIndex ? ' is-selected' : ''}" data-opening-index="${index}">
             <div class="opening-head">
               <span class="hole-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
               <select class="opening-select" data-opening-field="side" aria-label="第 ${index + 1} 个开孔所在面板">
@@ -789,6 +1060,9 @@ function renderOpenings() {
   }
   dom.openingCount.textContent = `${state.openings.length} / ${MAX_OPENINGS}`;
   dom.addOpeningButton.disabled = state.openings.length >= MAX_OPENINGS;
+  dom.addPresetOpeningButton.disabled = state.openings.length >= MAX_OPENINGS;
+  dom.openingPresetSelect.disabled = state.openings.length >= MAX_OPENINGS;
+  updateSelectedOpeningUi();
 }
 
 function clearPendingOpeningFields() {
@@ -797,16 +1071,65 @@ function clearPendingOpeningFields() {
   }
 }
 
+function setActiveOpeningSide(side, { syncView = true } = {}) {
+  if (!OPENING_SIDES.includes(side)) return;
+  activeOpeningSide = side;
+  if (
+    selectedOpeningIndex !== null &&
+    state.openings[selectedOpeningIndex]?.side !== side
+  ) {
+    selectedOpeningIndex = null;
+  }
+  renderOpenings();
+  if (syncView) requestView(side);
+  requestAnimationFrame(() => {
+    dom.openingSideTabs
+      .querySelector(`[data-opening-side="${side}"]`)
+      ?.focus();
+  });
+}
+
 function addOpening() {
   if (state.openings.length >= MAX_OPENINGS) return;
-  state.openings.push(createOpening('front', 'rect'));
   clearPendingOpeningFields();
+  state.openings.push(createOpening(activeOpeningSide, 'rect'));
+  selectedOpeningIndex = state.openings.length - 1;
   renderOpenings();
   stateChanged();
   requestAnimationFrame(() => {
-    const lastCard = dom.openingList.querySelector('.opening-card:last-of-type');
-    lastCard?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    lastCard?.querySelector('input[data-opening-field="u"]')?.focus();
+    const card = dom.openingList.querySelector(
+      `.opening-card[data-opening-index="${selectedOpeningIndex}"]`,
+    );
+    card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    card?.querySelector('input[data-opening-field="u"]')?.focus();
+  });
+}
+
+function addPresetOpening() {
+  if (state.openings.length >= MAX_OPENINGS) return;
+  const preset = OPENING_PRESETS.find(
+    (item) => item.id === dom.openingPresetSelect.value,
+  );
+  if (!preset) return;
+  clearPendingOpeningFields();
+  const opening = createOpening(activeOpeningSide, preset.shape);
+  if (preset.shape === 'circle') {
+    opening.diameter = preset.diameter;
+  } else {
+    opening.width = preset.width;
+    opening.height = preset.height;
+  }
+  opening.u = 0;
+  opening.v = 0;
+  state.openings.push(opening);
+  selectedOpeningIndex = state.openings.length - 1;
+  renderOpenings();
+  stateChanged();
+  requestAnimationFrame(() => {
+    const card = dom.openingList.querySelector(
+      `.opening-card[data-opening-index="${selectedOpeningIndex}"]`,
+    );
+    card?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
 }
 
@@ -814,8 +1137,131 @@ function deleteOpening(index) {
   if (!Number.isInteger(index) || index < 0 || index >= state.openings.length) return;
   state.openings.splice(index, 1);
   clearPendingOpeningFields();
+  if (selectedOpeningIndex === index) selectedOpeningIndex = null;
+  else if (selectedOpeningIndex !== null && selectedOpeningIndex > index) {
+    selectedOpeningIndex -= 1;
+  }
   renderOpenings();
   stateChanged();
+}
+
+function mapPointFromEvent(event) {
+  const svg = dom.panelMap.querySelector('svg');
+  if (!svg) return null;
+  const point = svg.createSVGPoint();
+  point.x = event.clientX;
+  point.y = event.clientY;
+  const matrix = svg.getScreenCTM();
+  return matrix ? point.matrixTransform(matrix.inverse()) : null;
+}
+
+function startOpeningDrag(event) {
+  if (event.button !== 0) return;
+  const shape = event.target.closest('[data-map-opening]');
+  if (!shape) return;
+  const index = Number(shape.dataset.mapOpening);
+  const opening = state.openings[index];
+  if (!opening) return;
+
+  const dims = deriveCaseDimensions(state);
+  const width = sidePanelWidth(activeOpeningSide, dims);
+  const height = dims.innerHeight;
+  const point = mapPointFromEvent(event);
+  if (!point) return;
+  const center = openingDisplayCenter(opening, width, height);
+  for (const field of ['u', 'v']) {
+    pendingInvalid.delete(`openings.${index}.${field}`);
+  }
+  const card = dom.openingList.querySelector(
+    `.opening-card[data-opening-index="${index}"]`,
+  );
+  for (const field of ['u', 'v']) {
+    const input = card?.querySelector(`[data-opening-field="${field}"]`);
+    if (input) markFieldInvalid(input, false);
+  }
+  openingDrag = {
+    index,
+    pointerId: event.pointerId,
+    offsetX: center.x - point.x,
+    offsetY: center.y - point.y,
+    moved: false,
+  };
+  selectOpening(index);
+  dom.panelMap.setPointerCapture?.(event.pointerId);
+  event.preventDefault();
+}
+
+function moveOpeningDrag(event) {
+  if (!openingDrag || event.pointerId !== openingDrag.pointerId) return;
+  const opening = state.openings[openingDrag.index];
+  if (!opening) return;
+  const point = mapPointFromEvent(event);
+  if (!point) return;
+
+  const dims = deriveCaseDimensions(state);
+  const width = sidePanelWidth(activeOpeningSide, dims);
+  const height = dims.innerHeight;
+  const margins = openingSafeMargins(state, dims);
+  const halfWidth = opening.shape === 'circle' ? opening.diameter / 2 : opening.width / 2;
+  const halfHeight = opening.shape === 'circle' ? opening.diameter / 2 : opening.height / 2;
+  const minX = margins.x + halfWidth;
+  const maxX = width - margins.x - halfWidth;
+  const minY = margins.y + halfHeight;
+  const maxY = height - margins.y - halfHeight;
+  if (minX > maxX || minY > maxY) return;
+
+  const displayX = Math.min(maxX, Math.max(minX, point.x + openingDrag.offsetX));
+  const displayY = Math.min(maxY, Math.max(minY, point.y + openingDrag.offsetY));
+  const mirroredView =
+    activeOpeningSide === 'left' || activeOpeningSide === 'right';
+  const localX = mirroredView ? width - displayX : displayX;
+  const localY = height - displayY;
+  const next = panelLocalToOpening(activeOpeningSide, localX, localY, width, height);
+  const nextU = round(next.u, 1);
+  const nextV = round(next.v, 1);
+  if (nextU === opening.u && nextV === opening.v) return;
+
+  opening.u = nextU;
+  opening.v = nextV;
+  openingDrag.moved = true;
+
+  const shape = dom.panelMap.querySelector(
+    `[data-map-opening="${openingDrag.index}"]`,
+  );
+  if (shape) {
+    if (opening.shape === 'circle') {
+      shape.setAttribute('cx', String(displayX));
+      shape.setAttribute('cy', String(displayY));
+    } else {
+      shape.setAttribute('x', String(displayX - opening.width / 2));
+      shape.setAttribute('y', String(displayY - opening.height / 2));
+    }
+    const tag = shape.parentElement?.querySelector('.opening-map-tag');
+    if (tag) {
+      tag.setAttribute('x', String(displayX));
+      tag.setAttribute('y', String(displayY));
+    }
+  }
+
+  const card = dom.openingList.querySelector(
+    `.opening-card[data-opening-index="${openingDrag.index}"]`,
+  );
+  const uInput = card?.querySelector('[data-opening-field="u"]');
+  const vInput = card?.querySelector('[data-opening-field="v"]');
+  if (uInput && document.activeElement !== uInput) uInput.value = inputValue(nextU);
+  if (vInput && document.activeElement !== vInput) vInput.value = inputValue(nextV);
+  event.preventDefault();
+}
+
+function endOpeningDrag(event) {
+  if (!openingDrag || event.pointerId !== openingDrag.pointerId) return;
+  const { index, moved } = openingDrag;
+  openingDrag = null;
+  dom.panelMap.releasePointerCapture?.(event.pointerId);
+  if (moved) {
+    selectedOpeningIndex = index;
+    stateChanged();
+  }
 }
 
 function handleOpeningInput(input) {
@@ -840,6 +1286,7 @@ function handleOpeningInput(input) {
   if (!valid) {
     pendingInvalid.add(path);
     markFieldInvalid(input, true);
+    renderOpeningSideTabs();
     stateChanged({ rebuild: false });
     updateBlockedUi();
     return;
@@ -848,6 +1295,10 @@ function handleOpeningInput(input) {
   pendingInvalid.delete(path);
   markFieldInvalid(input, false);
   opening[field] = value;
+  selectedOpeningIndex = index;
+  renderOpeningSideTabs();
+  renderOpeningMap();
+  updateSelectedOpeningUi();
   stateChanged();
 }
 
@@ -872,6 +1323,10 @@ function normalizeOpeningInput(input) {
   opening[field] = value;
   pendingInvalid.delete(`openings.${index}.${field}`);
   markFieldInvalid(input, false);
+  selectedOpeningIndex = index;
+  renderOpeningSideTabs();
+  renderOpeningMap();
+  updateSelectedOpeningUi();
   stateChanged();
 }
 
@@ -885,6 +1340,13 @@ function handleOpeningSelect(select) {
 
   if (field === 'side') {
     opening.side = select.value;
+    for (const path of [...pendingInvalid]) {
+      if (path.startsWith(`openings.${index}.`)) pendingInvalid.delete(path);
+    }
+    activeOpeningSide = opening.side;
+    selectedOpeningIndex = index;
+    renderOpenings();
+    requestView(opening.side);
     stateChanged();
   } else if (field === 'shape') {
     const next = createOpening(opening.side, select.value);
@@ -892,6 +1354,8 @@ function handleOpeningSelect(select) {
     next.v = opening.v;
     state.openings[index] = next;
     clearPendingOpeningFields();
+    activeOpeningSide = next.side;
+    selectedOpeningIndex = index;
     renderOpenings();
     stateChanged();
   }
@@ -966,6 +1430,29 @@ function stateChanged({ rebuild = true } = {}) {
   else updateBlockedUi();
 }
 
+function boardModelKey() {
+  return JSON.stringify({
+    length: state.board.length,
+    width: state.board.width,
+    thickness: state.board.thickness,
+    cornerRadius: state.board.corner_radius,
+    holes: state.holes.map((hole) => [hole.x, hole.y, hole.diameter]),
+  });
+}
+
+function getBoardModelForBuild() {
+  const key = boardModelKey();
+  const reused = boardCache?.key === key;
+  if (!reused) {
+    if (boardCache) boardCache.model.geometry.dispose();
+    boardCache = {
+      key,
+      model: buildBoardModel(state),
+    };
+  }
+  return { model: boardCache.model, reused };
+}
+
 function scheduleBuild({ fit = false, immediate = false } = {}) {
   if (previewFailed) return;
   if (pendingInvalid.size > 0) {
@@ -1001,7 +1488,9 @@ function buildNow({ fit = false, generation = buildVersion, initial = false } = 
 
     let nextModel = null;
     try {
-      nextModel = buildCaseModel(state);
+      const board = getBoardModelForBuild();
+      nextModel = buildCaseModel(state, { boardModel: board.model });
+      nextModel.boardFromCache = board.reused;
       preview.setModel(nextModel, { fit: fit || initial });
       preview.setBoardColor(state.board.color);
       model = nextModel;
@@ -1067,6 +1556,7 @@ function updateModelUi(result) {
   renderSceneNotices(result);
   updateOpeningsHint(result);
   updateDerivedUi();
+  updateBom(result.mounts.length);
   updateActionButtons();
 }
 
@@ -1134,6 +1624,7 @@ function updateActionButtons() {
   dom.exportSvgButton.disabled = unavailable;
   dom.exportDxfButton.disabled = unavailable;
   dom.exportStlButton.disabled = unavailable;
+  dom.previewCutButton.disabled = unavailable;
 }
 
 /* ── Views / projection / explosion ─────────────────────────────────────── */
@@ -1189,6 +1680,38 @@ function toggleExploded() {
   exploded = !exploded;
   syncExplodeUi();
   if (preview && !previewFailed) preview.setExploded(exploded);
+}
+
+/* ── Cut-sheet preview ──────────────────────────────────────────────────── */
+
+function openSheetPreview() {
+  if (!ensureModelReady()) return;
+  try {
+    const bounds = cutSheetBounds(model);
+    dom.sheetSize.textContent =
+      `${formatNumber(bounds.sheetWidth)} × ${formatNumber(bounds.sheetHeight)} mm`;
+    const svg = buildCutSvg(model).replace(/^<\?xml[^>]*\?>\s*/i, '');
+    dom.sheetPreview.innerHTML = svg;
+    sheetReturnFocus = document.activeElement;
+    dom.sheetModal.hidden = false;
+    dom.sheetModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('sheet-open');
+    dom.sheetCloseButton.focus();
+  } catch (error) {
+    toast('切割排版预览失败', error?.message || String(error), 'error');
+  }
+}
+
+function closeSheetPreview() {
+  if (dom.sheetModal.hidden) return;
+  dom.sheetModal.hidden = true;
+  dom.sheetModal.setAttribute('aria-hidden', 'true');
+  dom.sheetPreview.innerHTML = '';
+  document.body.classList.remove('sheet-open');
+  if (sheetReturnFocus && typeof sheetReturnFocus.focus === 'function') {
+    sheetReturnFocus.focus();
+  }
+  sheetReturnFocus = null;
 }
 
 /* ── Exports ────────────────────────────────────────────────────────────── */
@@ -1562,7 +2085,21 @@ function bindEvents() {
     const button = event.target.closest('[data-delete-opening]');
     if (button) deleteOpening(Number(button.dataset.deleteOpening));
   });
+  dom.openingList.addEventListener('focusin', (event) => {
+    const card = event.target.closest('.opening-card');
+    if (card) selectOpening(Number(card.dataset.openingIndex));
+  });
   dom.addOpeningButton.addEventListener('click', addOpening);
+  dom.addPresetOpeningButton.addEventListener('click', addPresetOpening);
+  dom.openingSideTabs.addEventListener('click', (event) => {
+    const tab = event.target.closest('[data-opening-side]');
+    if (tab) setActiveOpeningSide(tab.dataset.openingSide);
+  });
+  dom.panelMap.addEventListener('pointerdown', startOpeningDrag);
+  dom.panelMap.addEventListener('pointermove', moveOpeningDrag);
+  dom.panelMap.addEventListener('pointerup', endOpeningDrag);
+  dom.panelMap.addEventListener('pointercancel', endOpeningDrag);
+  dom.copyBomButton.addEventListener('click', copyBomText);
 
   dom.presetRow.addEventListener('click', (event) => {
     const button = event.target.closest('[data-preset-id]');
@@ -1611,6 +2148,19 @@ function bindEvents() {
   dom.exportSvgButton.addEventListener('click', exportCutSvg);
   dom.exportDxfButton.addEventListener('click', exportCutDxf);
   dom.exportStlButton.addEventListener('click', exportAssemblyStl);
+  dom.previewCutButton.addEventListener('click', openSheetPreview);
+  dom.sheetCloseButton.addEventListener('click', closeSheetPreview);
+  dom.sheetModal.addEventListener('click', (event) => {
+    if (event.target === dom.sheetModal) closeSheetPreview();
+  });
+  dom.sheetExportSvgButton.addEventListener('click', exportCutSvg);
+  dom.sheetExportDxfButton.addEventListener('click', exportCutDxf);
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && !dom.sheetModal.hidden) {
+      event.preventDefault();
+      closeSheetPreview();
+    }
+  });
 
   dom.viewButtons.forEach((button) => {
     button.addEventListener('click', () => requestView(button.dataset.view));
@@ -1712,6 +2262,8 @@ function exposeDebugApi() {
               mountCount: model.mounts.length,
               lowerStandoffCount: model.hardware.lowerStandoffs.length,
               upperStandoffCount: model.hardware.upperStandoffs.length,
+              connectorShaftCount: model.hardware.connectorShafts.length,
+              boardFromCache: model.boardFromCache,
               columns: model.mounts.map((mount) => ({
                 x: mount.x,
                 y: mount.y,

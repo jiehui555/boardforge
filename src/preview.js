@@ -330,6 +330,15 @@ export class BoardPreview {
       mesh.receiveShadow = true;
       this.hardwareGroup.add(mesh);
     }
+    for (const shaft of model.hardware.connectorShafts) {
+      const mesh = new THREE.Mesh(
+        makeCylinder(shaft.radius, shaft.height, shaft.x, shaft.y, shaft.z, 16),
+        this.steelMaterial,
+      );
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      this.hardwareGroup.add(mesh);
+    }
     for (const screw of model.hardware.screwHeads) {
       const mesh = new THREE.Mesh(
         makeCylinder(screw.radius, screw.height, screw.x, screw.y, screw.z, 24),

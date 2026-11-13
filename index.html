@@ -240,6 +240,21 @@
                   </span>
                 </label>
               </div>
+
+              <details class="hardware-details" id="hardwareDetails">
+                <summary>
+                  <div class="board-summary-copy">
+                    <span class="eyebrow">五金清单</span>
+                    <strong id="hardwareSummary">4 组一体固定柱 · 8 颗 M3 螺丝</strong>
+                  </div>
+                  <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
+                </summary>
+                <div class="hardware-body">
+                  <ul class="bom-list" id="bomList"></ul>
+                  <p class="field-note" id="bomNote">顶/底螺丝穿过面板拧入固定柱，固定柱同时夹持开发板。</p>
+                  <button class="bom-copy" id="copyBomButton" type="button">复制五金清单</button>
+                </div>
+              </details>
             </section>
 
             <section class="panel-section openings-section">
@@ -258,15 +273,39 @@
                     <circle cx="18" cy="18" r="2.5" />
                   </svg>
                 </span>
-                <span>位置相对侧板中心<br /><b>U</b> 水平 · <b>V</b> 垂直</span>
+                <span>位置相对当前侧板中心<br /><b>U</b> 水平向右 · <b>V</b> 垂直向上</span>
               </div>
-              <p class="opening-view-note">定位开孔时，建议切换到「正交」投影和对应的前/后/左/右视图。</p>
+
+              <div class="panel-side-tabs" id="openingSideTabs" role="tablist" aria-label="侧板选择"></div>
+
+              <div class="panel-map-card">
+                <div class="panel-map-head">
+                  <div>
+                    <span class="eyebrow">侧板平面</span>
+                    <strong id="panelMapTitle">前面板</strong>
+                  </div>
+                  <span class="panel-map-dims" id="panelMapDims">89 × 23.6 mm</span>
+                </div>
+                <div class="panel-map" id="panelMap" aria-label="侧板开孔平面编辑区"></div>
+                <div class="panel-map-foot">
+                  <span>拖动开孔调整位置</span>
+                  <span>虚线内为可加工区域</span>
+                </div>
+              </div>
+
+              <div class="opening-preset-row">
+                <label class="opening-preset-field">
+                  <span>常用接口</span>
+                  <select id="openingPresetSelect" aria-label="选择常用接口预设"></select>
+                </label>
+                <button class="btn btn-secondary" id="addPresetOpeningButton" type="button">添加预设</button>
+              </div>
 
               <div class="opening-list" id="openingList"></div>
               <p class="holes-hint" id="openingsHint" hidden></p>
               <button class="add-hole-button" id="addOpeningButton" type="button">
                 <span class="plus">+</span>
-                <span>添加接口开孔</span>
+                <span>添加自定义开孔</span>
               </button>
             </section>
 
@@ -353,6 +392,7 @@
             <div class="export-meta">
               <span class="export-label">导出</span>
               <span class="export-filename" id="exportFilename">board-case-95x66x29.6</span>
+              <button class="preview-sheet-button" id="previewCutButton" type="button" title="预览六块面板的切割排版">排版预览</button>
               <span class="export-status" id="exportStatus">准备就绪</span>
             </div>
             <div class="export-actions export-actions-4">
@@ -459,6 +499,31 @@
           </div>
         </section>
       </main>
+    </div>
+
+    <div class="sheet-modal" id="sheetModal" hidden aria-hidden="true">
+      <div class="sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+        <div class="sheet-head">
+          <div>
+            <span class="eyebrow">激光切割</span>
+            <h2 id="sheetTitle">切割排版预览</h2>
+          </div>
+          <button class="sheet-close" id="sheetCloseButton" type="button" aria-label="关闭切割排版预览">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+          </button>
+        </div>
+        <div class="sheet-meta">
+          <span>排版尺寸 <b id="sheetSize">—</b></span>
+          <span>6 块面板</span>
+          <span>单位 mm</span>
+          <span class="sheet-note">名义尺寸 · kerf 由激光软件补偿 · 请确认实际幅面</span>
+        </div>
+        <div class="sheet-preview" id="sheetPreview"></div>
+        <div class="sheet-foot">
+          <button class="btn btn-secondary" id="sheetExportSvgButton" type="button">导出 SVG</button>
+          <button class="btn btn-primary" id="sheetExportDxfButton" type="button">导出切割 DXF</button>
+        </div>
+      </div>
     </div>
 
     <input id="fileInput" type="file" accept=".json,.case.json,.board.json,application/json" hidden />
