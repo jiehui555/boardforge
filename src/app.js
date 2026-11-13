@@ -152,6 +152,14 @@ const dom = {
   sheetPreview: document.querySelector('#sheetPreview'),
   sheetExportSvgButton: document.querySelector('#sheetExportSvgButton'),
   sheetExportDxfButton: document.querySelector('#sheetExportDxfButton'),
+  projectModal: document.querySelector('#projectModal'),
+  projectDialogTitle: document.querySelector('#projectDialogTitle'),
+  projectDialogText: document.querySelector('#projectDialogText'),
+  projectDialogSummary: document.querySelector('#projectDialogSummary'),
+  projectCloseButton: document.querySelector('#projectCloseButton'),
+  projectCancelButton: document.querySelector('#projectCancelButton'),
+  projectDirectButton: document.querySelector('#projectDirectButton'),
+  projectExportButton: document.querySelector('#projectExportButton'),
 
   previewCanvas: document.querySelector('#previewCanvas'),
   previewName: document.querySelector('#previewName'),
@@ -205,6 +213,9 @@ let selectedOpeningIndex = null;
 let openingDrag = null;
 let currentBomText = '';
 let sheetReturnFocus = null;
+let projectReturnFocus = null;
+let pendingProjectAction = null;
+let safeProjectSignatures = null;
 let boardCache = null;
 const pendingInvalid = new Set();
 
@@ -1487,6 +1498,134 @@ function loadPreset(id) {
   toast(`已载入 ${preset.label}`, `${preset.detail} mm · 外壳参数已重置`);
 }
 
+function applyNewProject() {
+  pendingInvalid.clear();
+  state = createDefaultCaseState();
+  selectedPresetId = detectPresetId(state);
+  syncFormFromState();
+  if (preview) {
+    preview.setBoardColor(state.board.color);
+    preview.setExploded(false);
+  }
+  exploded = false;
+  syncExplodeUi();
+  scheduleBuild({ fit: true, immediate: true });
+  queueSave();
+  toast('已新建默认外壳', '六面板榫卯 · 3 mm 亚克力 · M3 五金');
+}
+
+function projectSignature(candidate) {
+  const documentData = toCaseDocument(candidate, { touch: false });
+  delete documentData.meta;
+  return JSON.stringify(documentData);
+}
+
+function projectIsSafeToReplace() {
+  if (!safeProjectSignatures) {
+    safeProjectSignatures = new Set([
+      projectSignature(createDefaultCaseState()),
+      ...PRESETS.map((preset) =>
+        projectSignature(createCaseFromPreset(preset)),
+      ),
+    ]);
+  }
+  return safeProjectSignatures.has(projectSignature(state));
+}
+
+function requestPresetLoad(id) {
+  const preset = PRESETS.find((entry) => entry.id === id);
+  if (!preset) return;
+  if (projectIsSafeToReplace()) {
+    loadPreset(id);
+    return;
+  }
+  openProjectDialog({ type: 'preset', preset });
+}
+
+function requestNewProject() {
+  if (projectIsSafeToReplace()) {
+    applyNewProject();
+    return;
+  }
+  openProjectDialog({ type: 'new' });
+}
+
+function projectSummaryItem(label, value) {
+  return `
+    <div class="confirm-stat">
+      <span>${escapeHtml(label)}</span>
+      <b>${escapeHtml(value)}</b>
+    </div>`;
+}
+
+function openProjectDialog(action) {
+  const isPreset = action.type === 'preset';
+  const dims = deriveCaseDimensions(state);
+  dom.projectDialogTitle.textContent = isPreset
+    ? `载入「${action.preset.label}」？`
+    : '新建项目？';
+  dom.projectDialogText.textContent = isPreset
+    ? `载入预设会替换当前项目「${state.name}」的板子、孔位、开孔和外壳参数。`
+    : `新建会替换当前项目「${state.name}」的所有参数。`;
+  dom.projectDialogSummary.innerHTML = [
+    projectSummaryItem('当前项目', state.name),
+    projectSummaryItem(
+      '开发板',
+      `${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} × ` +
+        `${formatNumber(state.board.thickness)} mm`,
+    ),
+    projectSummaryItem(
+      '安装孔 / 开孔',
+      `${state.holes.length} / ${state.openings.length}`,
+    ),
+    projectSummaryItem(
+      '外壳外形',
+      `${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ` +
+        `${formatNumber(dims.outerHeight)} mm`,
+    ),
+  ].join('');
+  dom.projectDirectButton.textContent = isPreset ? '直接载入' : '直接新建';
+  dom.projectExportButton.textContent = isPreset ? '导出并载入' : '导出并新建';
+
+  pendingProjectAction = action;
+  projectReturnFocus = document.activeElement;
+  dom.projectModal.hidden = false;
+  dom.projectModal.setAttribute('aria-hidden', 'false');
+  document.body.classList.add('project-open');
+  dom.projectCancelButton.focus();
+}
+
+function closeProjectDialog({ restoreFocus = true } = {}) {
+  if (dom.projectModal.hidden) return;
+  dom.projectModal.hidden = true;
+  dom.projectModal.setAttribute('aria-hidden', 'true');
+  document.body.classList.remove('project-open');
+  pendingProjectAction = null;
+  if (restoreFocus && projectReturnFocus?.focus) projectReturnFocus.focus();
+  projectReturnFocus = null;
+}
+
+function performProjectAction(action) {
+  if (!action) return;
+  if (action.type === 'preset') loadPreset(action.preset.id);
+  else if (action.type === 'new') applyNewProject();
+}
+
+function confirmProjectDirect() {
+  const action = pendingProjectAction;
+  if (!action) return;
+  closeProjectDialog({ restoreFocus: false });
+  performProjectAction(action);
+}
+
+function confirmProjectWithExport() {
+  const action = pendingProjectAction;
+  if (!action) return;
+  if (!exportCaseJson()) return;
+  closeProjectDialog({ restoreFocus: false });
+  performProjectAction(action);
+}
+
 /* ── Build ──────────────────────────────────────────────────────────────── */
 
 function stateChanged({ rebuild = true } = {}) {
@@ -1823,7 +1962,7 @@ function touchDocument() {
 function exportCaseJson() {
   if (pendingInvalid.size > 0) {
     toast('请先修正参数', '高亮字段的数值无效或超出范围。', 'error');
-    return;
+    return false;
   }
   try {
     const documentData = touchDocument();
@@ -1832,8 +1971,10 @@ function exportCaseJson() {
     downloadBlob(new Blob([json], { type: 'application/json;charset=utf-8' }), filename);
     saveNow();
     toast('参数文件已导出', `${filename} · ${formatBytes(new Blob([json]).size)}`);
+    return true;
   } catch (error) {
     toast('参数导出失败', error?.message || String(error), 'error');
+    return false;
   }
 }
 
@@ -2189,7 +2330,7 @@ function bindEvents() {
 
   dom.presetRow.addEventListener('click', (event) => {
     const button = event.target.closest('[data-preset-id]');
-    if (button) loadPreset(button.dataset.presetId);
+    if (button) requestPresetLoad(button.dataset.presetId);
   });
 
   dom.modeButton.addEventListener('click', () => {
@@ -2208,21 +2349,7 @@ function bindEvents() {
   });
   dom.resetThemeButton.addEventListener('click', resetTheme);
 
-  dom.newButton.addEventListener('click', () => {
-    pendingInvalid.clear();
-    state = createDefaultCaseState();
-    selectedPresetId = detectPresetId(state);
-    syncFormFromState();
-    if (preview) {
-      preview.setBoardColor(state.board.color);
-      preview.setExploded(false);
-    }
-    exploded = false;
-    syncExplodeUi();
-    scheduleBuild({ fit: true, immediate: true });
-    queueSave();
-    toast('已新建默认外壳', '六面板榫卯 · 3 mm 亚克力 · M3 五金');
-  });
+  dom.newButton.addEventListener('click', requestNewProject);
 
   dom.importButton.addEventListener('click', () => dom.fileInput.click());
   dom.fileInput.addEventListener('change', () => {
@@ -2234,6 +2361,13 @@ function bindEvents() {
   dom.exportSvgButton.addEventListener('click', exportCutSvg);
   dom.exportDxfButton.addEventListener('click', exportCutDxf);
   dom.exportStlButton.addEventListener('click', exportAssemblyStl);
+  dom.projectCancelButton.addEventListener('click', () => closeProjectDialog());
+  dom.projectCloseButton.addEventListener('click', () => closeProjectDialog());
+  dom.projectDirectButton.addEventListener('click', confirmProjectDirect);
+  dom.projectExportButton.addEventListener('click', confirmProjectWithExport);
+  dom.projectModal.addEventListener('click', (event) => {
+    if (event.target === dom.projectModal) closeProjectDialog();
+  });
   dom.previewCutButton.addEventListener('click', openSheetPreview);
   dom.sheetCloseButton.addEventListener('click', closeSheetPreview);
   dom.sheetModal.addEventListener('click', (event) => {
@@ -2243,6 +2377,11 @@ function bindEvents() {
   dom.sheetExportDxfButton.addEventListener('click', exportCutDxf);
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
+    if (!dom.projectModal.hidden) {
+      event.preventDefault();
+      closeProjectDialog();
+      return;
+    }
     if (!dom.sheetModal.hidden) {
       event.preventDefault();
       closeSheetPreview();

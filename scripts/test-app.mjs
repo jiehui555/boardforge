@@ -368,6 +368,64 @@ try {
   await page.locator('[data-preset-id="raspberry-pi-4b"]').click();
   await waitIdle();
 
+  // Replacing a customized project asks whether to export it first.
+  await page.locator('#caseName').fill('客户定制外壳');
+  await page.locator('#caseName').blur();
+  await page.waitForTimeout(350);
+  await page.locator('#newButton').click();
+  ok(await page.locator('#projectModal').isVisible(), 'custom project prompts before creating a new project');
+  ok(
+    (await page.locator('#projectDialogTitle').textContent()).includes('新建'),
+    'new project guard has its own title',
+  );
+  await page.locator('#projectCancelButton').click();
+  ok((await state()).name === '客户定制外壳', 'cancelling a new project keeps the current project');
+
+  await page.locator('[data-preset-id="esp32-devkit"]').click();
+  ok(await page.locator('#projectModal').isVisible(), 'custom project prompts before preset replacement');
+  ok(
+    (await page.locator('#projectDialogTitle').textContent()).includes('ESP32'),
+    'project guard names the target preset',
+  );
+  ok(
+    (await page.locator('#projectDialogSummary').textContent()).includes('85 × 56'),
+    'project guard summarizes the current board',
+  );
+  await page.screenshot({ path: join(screenshots, 'case-project-guard.png') });
+  await page.locator('#projectCancelButton').click();
+  ok(await page.locator('#projectModal').isHidden(), 'project guard can be cancelled');
+  ok((await state()).name === '客户定制外壳', 'cancelling keeps the current project');
+
+  await page.locator('[data-preset-id="esp32-devkit"]').click();
+  const guardedPath = join(work, 'guarded-project.case.json');
+  const guardedDownload = await download('#projectExportButton', guardedPath);
+  ok(
+    guardedDownload.suggestedFilename().endsWith('.case.json'),
+    'project guard can export before replacement',
+  );
+  await waitIdle();
+  const guardedJson = JSON.parse(await readFile(guardedPath, 'utf8'));
+  ok(guardedJson.name === '客户定制外壳', 'project guard exports the current project data');
+  ok(
+    (await state()).name === 'ESP32 DevKit V1 外壳',
+    'export and continue applies the selected preset',
+  );
+  await page.locator('[data-preset-id="raspberry-pi-4b"]').click();
+  await waitIdle();
+
+  await page.locator('#caseName').fill('第二个自定义项目');
+  await page.locator('#caseName').blur();
+  await page.waitForTimeout(350);
+  await page.locator('[data-preset-id="esp32-devkit"]').click();
+  await page.locator('#projectDirectButton').click();
+  await waitIdle();
+  ok(
+    (await state()).name === 'ESP32 DevKit V1 外壳',
+    'direct replacement can skip the export step',
+  );
+  await page.locator('[data-preset-id="raspberry-pi-4b"]').click();
+  await waitIdle();
+
   // Enclosure inputs drive the derived dimensions.
   await openAccordion('enclosure');
   await page.locator('#panelThicknessInput').fill('4');

@@ -521,6 +521,30 @@
       </main>
     </div>
 
+    <div class="confirm-modal" id="projectModal" hidden aria-hidden="true">
+      <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="projectDialogTitle" aria-describedby="projectDialogText">
+        <div class="confirm-head">
+          <div>
+            <span class="eyebrow">项目切换</span>
+            <h2 id="projectDialogTitle">载入预设？</h2>
+          </div>
+          <button class="confirm-close" id="projectCloseButton" type="button" aria-label="关闭项目切换提示">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
+          </button>
+        </div>
+        <div class="confirm-body">
+          <p class="confirm-message" id="projectDialogText">载入预设会替换当前项目的参数。</p>
+          <div class="confirm-summary" id="projectDialogSummary"></div>
+          <p class="confirm-note">本地自动保存只保留当前项目。导出后可随时通过「导入参数」继续编辑。</p>
+        </div>
+        <div class="confirm-actions">
+          <button class="btn btn-quiet" id="projectCancelButton" type="button">取消</button>
+          <button class="btn btn-secondary" id="projectDirectButton" type="button">直接载入</button>
+          <button class="btn btn-primary" id="projectExportButton" type="button">导出并载入</button>
+        </div>
+      </div>
+    </div>
+
     <div class="sheet-modal" id="sheetModal" hidden aria-hidden="true">
       <div class="sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
         <div class="sheet-head">
