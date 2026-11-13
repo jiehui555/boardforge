@@ -30,7 +30,6 @@ export const CASE_LIMITS = Object.freeze({
   clearance: { min: 1, max: 60, step: 0.5 },
   bottomGap: { min: 0, max: 100, step: 0.5 },
   topGap: { min: 2, max: 180, step: 0.5 },
-  screwClearance: { min: 2, max: 8, step: 0.1 },
   fit: { min: 0, max: 0.8, step: 0.05 },
   ventCount: { min: 1, max: 14, step: 1 },
   ventWidth: { min: 0.6, max: 12, step: 0.1 },
@@ -39,6 +38,37 @@ export const CASE_LIMITS = Object.freeze({
   openingV: { min: -200, max: 200, step: 0.5 },
   openingSize: { min: 1, max: 300, step: 0.5 },
 });
+
+/**
+ * Metric machine-screw sizes used by the acrylic enclosure. Clearance values
+ * follow the common medium-fit through-hole diameters (ISO 273).
+ */
+export const SCREW_SPECS = Object.freeze([
+  { id: 'M2', label: 'M2', major: 2, clearance: 2.4 },
+  { id: 'M2.5', label: 'M2.5', major: 2.5, clearance: 2.9 },
+  { id: 'M3', label: 'M3', major: 3, clearance: 3.4 },
+  { id: 'M4', label: 'M4', major: 4, clearance: 4.5 },
+]);
+
+export function screwSpecById(id) {
+  return SCREW_SPECS.find((spec) => spec.id === id) || null;
+}
+
+export function screwSpecForClearance(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return screwSpecById('M3') || SCREW_SPECS[0];
+
+  const exact = SCREW_SPECS.find(
+    (spec) => Math.abs(spec.clearance - numeric) < 1e-6,
+  );
+  if (exact) return exact;
+
+  return SCREW_SPECS.reduce((best, spec) =>
+    Math.abs(spec.clearance - numeric) < Math.abs(best.clearance - numeric)
+      ? spec
+      : best,
+  );
+}
 
 export const DEFAULT_ENCLOSURE = Object.freeze({
   panel_thickness: 3,
@@ -78,6 +108,9 @@ function clamp(value, min, max) {
 function cleanEnclosure(raw, warnings) {
   const source = isPlainObject(raw) ? raw : {};
   const rawVent = isPlainObject(source.vent) ? source.vent : {};
+  const screwSpec = screwSpecForClearance(
+    finite(source.screw_clearance, DEFAULT_ENCLOSURE.screw_clearance),
+  );
 
   const values = {
     panel_thickness: clamp(
@@ -100,11 +133,7 @@ function cleanEnclosure(raw, warnings) {
       CASE_LIMITS.topGap.min,
       CASE_LIMITS.topGap.max,
     ),
-    screw_clearance: clamp(
-      round(finite(source.screw_clearance, DEFAULT_ENCLOSURE.screw_clearance), 3),
-      CASE_LIMITS.screwClearance.min,
-      CASE_LIMITS.screwClearance.max,
-    ),
+    screw_clearance: screwSpec.clearance,
     fit: clamp(
       round(finite(source.fit, DEFAULT_ENCLOSURE.fit), 3),
       0,
@@ -144,7 +173,6 @@ function cleanEnclosure(raw, warnings) {
     [source.clearance, values.clearance],
     [source.bottom_gap, values.bottom_gap],
     [source.top_gap, values.top_gap],
-    [source.screw_clearance, values.screw_clearance],
     [source.fit, values.fit],
     [rawVent.count, values.vent.count],
     [rawVent.slot_width, values.vent.slot_width],
@@ -159,6 +187,16 @@ function cleanEnclosure(raw, warnings) {
     )
   ) {
     warnings.push('部分外壳参数超出允许范围，已自动限制。');
+  }
+
+  if (
+    source.screw_clearance !== undefined &&
+    Number.isFinite(Number(source.screw_clearance)) &&
+    Number(source.screw_clearance) !== values.screw_clearance
+  ) {
+    warnings.push(
+      `固定柱过孔已归一到标准 ${screwSpec.label} 规格（${screwSpec.clearance} mm）。`,
+    );
   }
 
   return values;

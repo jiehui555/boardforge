@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   CASE_FORMAT,
   CASE_VERSION,
+  SCREW_SPECS,
   caseFileStem,
   createCaseFromPreset,
   createDefaultCaseState,
@@ -9,6 +10,7 @@ import {
   deriveCaseDimensions,
   normalizeCaseState,
   openingToPanelLocal,
+  screwSpecForClearance,
   toCaseDocument,
 } from '../src/case-schema.js';
 import {
@@ -54,6 +56,26 @@ ok(caseFileStem(defaults, dimensions) === 'board-case-95x66x29.6', 'case filenam
 const roundTrip = normalizeCaseState(toCaseDocument(defaults, { touch: false }));
 ok(roundTrip.state.enclosure.panel_thickness === 3, 'case document round-trip preserves enclosure');
 ok(roundTrip.warnings.length === 0, 'complete case document normalizes without warnings');
+
+// Screw hardware is restricted to standard metric clearance holes.
+ok(
+  SCREW_SPECS.map((spec) => spec.clearance).join(',') === '2.4,2.9,3.4,4.5',
+  'standard metric clear holes are defined',
+);
+ok(screwSpecForClearance(3).id === 'M2.5', 'arbitrary clearance snaps to nearest standard spec');
+const legacyScrew = createDefaultCaseState();
+legacyScrew.enclosure.screw_clearance = 3;
+const normalizedScrew = normalizeCaseState(
+  toCaseDocument(legacyScrew, { touch: false }),
+);
+ok(
+  normalizedScrew.state.enclosure.screw_clearance === 2.9,
+  'legacy screw clearance is normalized to a standard hole',
+);
+ok(
+  normalizedScrew.warnings.some((warning) => warning.includes('标准')),
+  'normalized screw clearance emits a warning',
+);
 
 const legacy = normalizeCaseState({
   version: 1,

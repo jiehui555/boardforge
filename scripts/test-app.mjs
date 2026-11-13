@@ -169,7 +169,7 @@ try {
   ok(initial.diagnostics.warnings.length === 0, 'default enclosure has no warnings');
   ok((await page.locator('#panelMap svg').count()) === 1, '2D side-panel editor renders');
   ok((await page.locator('.panel-side-tab').count()) === 4, 'all four panels are selectable in the 2D editor');
-  ok((await page.locator('#bomList li').count()) === 5, 'hardware BOM is populated');
+  ok((await page.locator('#bomList li').count()) === 6, 'hardware BOM is populated');
   ok(
     (await page.locator('#hardwareSummary').textContent()).includes('固定柱'),
     'BOM summary reports the integrated columns',
@@ -190,8 +190,13 @@ try {
   ok((await page.locator('#modelStatusText').textContent()).includes('6 面板'), 'status reports six panels');
   ok((await page.evaluate(() => window.boardForge.getMode())) === 'dark', 'default mode is dark');
   ok(
-    (await page.locator('#hardwareNote').textContent()).includes('固定柱'),
-    'hardware note explains integrated standoff columns',
+    (await page.locator('#hardwareNote').textContent()).includes('M3'),
+    'hardware note explains the standard standoff spec',
+  );
+  ok(
+    (await page.locator('#screwSpecSelect').inputValue()) === 'M3' &&
+      (await page.locator('#screwSpecSelect option').count()) === 4,
+    'hardware spec selector exposes standard metric sizes',
   );
 
   // A smaller clearance removes the board-hole compatibility warning.
@@ -201,14 +206,22 @@ try {
       (await page.locator('.accordion-section[data-accordion="enclosure"]').evaluate((element) => element.open)) === false,
     'opening another module closes the previous one',
   );
-  await page.locator('#screwClearanceInput').fill('2.9');
+  await page.locator('#screwSpecSelect').selectOption('M2.5');
   await waitIdle();
   ok(
     !(await page.locator('#hardwareNote').getAttribute('class')).includes('is-warning'),
-    'compatible screw clearance clears the hardware warning',
+    'standard M2.5 hardware clears the board-hole warning',
   );
-  await page.locator('#screwClearanceInput').fill('3.4');
+  ok(
+    (await state()).enclosure.screw_clearance === 2.9,
+    'selecting M2.5 stores its standard clear hole',
+  );
+  await page.locator('#screwSpecSelect').selectOption('M3');
   await waitIdle();
+  ok(
+    (await state()).enclosure.screw_clearance === 3.4,
+    'selecting M3 stores its standard clear hole',
+  );
 
   await openAccordion('enclosure');
   await page.screenshot({ path: join(screenshots, 'case-default.png') });

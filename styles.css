@@ -898,7 +898,8 @@ html[data-mode="light"] .mode-icon-sun {
   box-shadow: 0 0 0 3px rgba(255, 122, 109, 0.06);
 }
 
-.input-shell input {
+.input-shell input,
+.input-shell select {
   width: 100%;
   min-width: 0;
   padding: 9px 0;
@@ -908,6 +909,34 @@ html[data-mode="light"] .mode-icon-sun {
   color: var(--text);
   font-size: 14px;
   font-weight: 560;
+}
+
+.input-shell select {
+  padding-right: 6px;
+  appearance: none;
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.select-shell {
+  position: relative;
+}
+
+.select-chevron {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  fill: none;
+  stroke: var(--dim);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+html[data-mode="light"] .input-shell select {
+  color: var(--text);
 }
 
 .unit {

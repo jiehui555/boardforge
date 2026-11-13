@@ -113,7 +113,7 @@ BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三�
 | `clearance` | 2 mm | 1–60 | 板边到内壁的间隙；默认紧凑贴合 |
 | `bottom_gap` | 6 mm | 0–100 | 底板到板底面的下固定柱长度 |
 | `top_gap` | 16 mm | 2–180 | 板顶面到顶板内侧的上固定柱长度 |
-| `screw_clearance` | 3.4 mm | 2–8 | 顶/底板和一体固定柱的螺丝过孔直径 |
+| `screw_clearance` | 3.4 mm | 2.4 / 2.9 / 3.4 / 4.5 | 标准公制五金过孔：M2 / M2.5 / M3 / M4 |
 | `fit` | 0.15 mm | 0–0.8 | 榫舌/榫槽配合间隙 |
 | `vent.enabled` | true | boolean | 是否生成通风槽 |
 | `vent.count` | 5 | 1–14 | 槽数量 |
@@ -140,7 +140,9 @@ outerHeight = innerHeight + 2 × panel_thickness
 - 顶板和底板在相同 X/Y 位置开 `screw_clearance` 过孔；
 - 上下各一颗螺丝把顶板、板子、底板锁成同一组结构。
 
-因此，`holes[].diameter` 必须能容纳实际螺丝/螺柱。若板孔明显小于 `screw_clearance`，界面会提示扩孔或减小过孔尺寸。没有有效板孔时不会生成固定柱，并会给出警告。
+因此，`holes[].diameter` 必须能容纳实际螺丝/螺柱。若板孔明显小于 `screw_clearance`，界面会提示扩孔或改用更小的标准规格。没有有效板孔时不会生成固定柱，并会给出警告。
+
+导入的 `screw_clearance` 如果不是上述标准值，会被归一到最接近的 M2 / M2.5 / M3 / M4 过孔，并产生一条警告。导出时始终写入标准化后的数值。
 
 ### 侧板开孔
 

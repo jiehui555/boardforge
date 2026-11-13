@@ -112,6 +112,7 @@ export class BoardPreview {
       color: 0xb3955c,
       roughness: 0.36,
       metalness: 0.7,
+      flatShading: true,
     });
 
     this.assemblyGroup = new THREE.Group();
@@ -208,6 +209,24 @@ export class BoardPreview {
     if (!controls?._quat || !controls._quatInverse) return;
     controls._quat.setFromUnitVectors(this.camera.up, ORBIT_UP);
     controls._quatInverse.copy(controls._quat).invert();
+  }
+
+  addStandoff(standoff, zOffset) {
+    const mesh = new THREE.Mesh(
+      makeCylinder(
+        standoff.radius,
+        standoff.height + STANDOFF_BOARD_OVERLAP,
+        standoff.x,
+        standoff.y,
+        standoff.z,
+        6,
+      ),
+      this.brassMaterial,
+    );
+    mesh.position.z = zOffset;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    this.hardwareGroup.add(mesh);
   }
 
   createEnvironment() {
@@ -377,38 +396,10 @@ export class BoardPreview {
     // otherwise be exactly coplanar with the opaque board and z-fight while
     // the camera is still easing after a drag.
     for (const standoff of model.hardware.lowerStandoffs) {
-      const mesh = new THREE.Mesh(
-        makeCylinder(
-          standoff.radius,
-          standoff.height + STANDOFF_BOARD_OVERLAP,
-          standoff.x,
-          standoff.y,
-          standoff.z,
-          6,
-        ),
-        this.brassMaterial,
-      );
-      mesh.position.z = STANDOFF_BOARD_OVERLAP / 2;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.hardwareGroup.add(mesh);
+      this.addStandoff(standoff, STANDOFF_BOARD_OVERLAP / 2);
     }
     for (const standoff of model.hardware.upperStandoffs) {
-      const mesh = new THREE.Mesh(
-        makeCylinder(
-          standoff.radius,
-          standoff.height + STANDOFF_BOARD_OVERLAP,
-          standoff.x,
-          standoff.y,
-          standoff.z,
-          6,
-        ),
-        this.brassMaterial,
-      );
-      mesh.position.z = -STANDOFF_BOARD_OVERLAP / 2;
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.hardwareGroup.add(mesh);
+      this.addStandoff(standoff, -STANDOFF_BOARD_OVERLAP / 2);
     }
     for (const shaft of model.hardware.connectorShafts) {
       const mesh = new THREE.Mesh(

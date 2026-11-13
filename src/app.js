@@ -13,6 +13,7 @@ import {
   MAX_OPENINGS,
   OPENING_SHAPES,
   OPENING_SIDES,
+  SCREW_SPECS,
   SIDE_LABELS,
   caseFileStem,
   createCaseFromPreset,
@@ -23,6 +24,8 @@ import {
   openingSafeMargins,
   openingToPanelLocal,
   panelLocalToOpening,
+  screwSpecById,
+  screwSpecForClearance,
   sidePanelWidth,
   toCaseDocument,
 } from './case-schema.js';
@@ -82,7 +85,7 @@ const dom = {
   clearanceInput: document.querySelector('#clearanceInput'),
   bottomGapInput: document.querySelector('#bottomGapInput'),
   topGapInput: document.querySelector('#topGapInput'),
-  screwClearanceInput: document.querySelector('#screwClearanceInput'),
+  screwSpecSelect: document.querySelector('#screwSpecSelect'),
   fitInput: document.querySelector('#fitInput'),
   ventEnabledInput: document.querySelector('#ventEnabledInput'),
   ventCountInput: document.querySelector('#ventCountInput'),
@@ -233,6 +236,7 @@ function bootstrap() {
   selectedPresetId = detectPresetId(state);
 
   renderPresets();
+  renderHardwareSpecOptions();
   renderOpeningPresetOptions();
   syncFormFromState();
   syncProjectionUi();
@@ -409,7 +413,9 @@ function syncFormFromState() {
   dom.clearanceInput.value = inputValue(state.enclosure.clearance);
   dom.bottomGapInput.value = inputValue(state.enclosure.bottom_gap);
   dom.topGapInput.value = inputValue(state.enclosure.top_gap);
-  dom.screwClearanceInput.value = inputValue(state.enclosure.screw_clearance);
+  dom.screwSpecSelect.value = screwSpecForClearance(
+    state.enclosure.screw_clearance,
+  ).id;
   dom.fitInput.value = inputValue(state.enclosure.fit);
   dom.ventEnabledInput.checked = state.enclosure.vent.enabled;
   dom.ventCountInput.value = inputValue(state.enclosure.vent.count);
@@ -468,8 +474,15 @@ function updateDerivedUi() {
   updateFilenameUi();
 }
 
+function fittingScrewSpec(smallestHole) {
+  return [...SCREW_SPECS]
+    .reverse()
+    .find((spec) => spec.clearance - smallestHole <= 0.4) || null;
+}
+
 function updateHardwareNote() {
   const clearance = Number(state.enclosure.screw_clearance);
+  const spec = screwSpecForClearance(clearance);
   const analysis = analyseHoles(state);
   const usable = analysis.printable;
 
@@ -488,14 +501,19 @@ function updateHardwareNote() {
 
   const smallest = Math.min(...usable.map((hole) => hole.diameter));
   if (clearance - smallest > 0.4) {
+    const smaller = fittingScrewSpec(smallest);
     dom.hardwareNote.textContent =
-      `板孔最小 ${formatNumber(smallest)} mm，小于 ${formatNumber(clearance)} mm ` +
-      `固定柱过孔；请扩孔或将过孔改为约 ${formatNumber(smallest + 0.2)} mm。`;
+      `板孔最小 ${formatNumber(smallest)} mm，小于 ${spec.label} 的 ` +
+      `${formatNumber(clearance)} mm 标准过孔；` +
+      (smaller
+        ? `请扩孔，或改用 ${smaller.label}（${formatNumber(smaller.clearance)} mm 过孔）。`
+        : '请扩孔后再使用标准五金。');
     dom.hardwareNote.classList.add('is-warning');
     return;
   }
 
   dom.hardwareNote.textContent =
+    `${spec.label} 标准过孔 ${formatNumber(clearance)} mm；` +
     `${usable.length} 组固定柱穿过开发板孔位，上下锁紧顶板与底板。`;
   dom.hardwareNote.classList.remove('is-warning');
 }
@@ -506,7 +524,8 @@ function updateBom(actualMountCount = null) {
   const count = actualMountCount ?? usable.length;
   const t = dims.panelThickness;
   const clearance = Number(state.enclosure.screw_clearance);
-  const screwLabel = clearance >= 3.2 ? 'M3' : clearance >= 2.7 ? 'M2.5' : 'M2';
+  const spec = screwSpecForClearance(clearance);
+  const screwLabel = spec.label;
   const lowerLength = dims.bottomGap;
   const upperLength = dims.topGap;
   const panelScrewLength = Math.max(6, Math.ceil(t + 5));
@@ -515,19 +534,20 @@ function updateBom(actualMountCount = null) {
     : 0;
   const rows = [
     [`${formatNumber(t)} mm 亚克力板`, '6 块'],
-    [`${screwLabel} 下固定柱（双内螺纹）`, `${count} × ${formatNumber(lowerLength)} mm`],
-    [`${screwLabel} 上固定柱（内外螺纹）`, `${count} × ${formatNumber(upperLength)} mm`],
+    [`${screwLabel} 下六角固定柱（双内螺纹）`, `${count} × ${formatNumber(lowerLength)} mm`],
+    [`${screwLabel} 上六角固定柱（内外螺纹）`, `${count} × ${formatNumber(upperLength)} mm`],
     [`${screwLabel} 顶/底面板螺丝`, `${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`],
+    [`${screwLabel} 标准过孔`, `${formatNumber(clearance)} mm`],
     [`${screwLabel} 平垫圈`, `${count * 2} 个（建议）`],
   ];
 
   dom.hardwareSummary.textContent =
     count > 0
-      ? `${count} 组一体固定柱 · ${count * 2} 颗 ${screwLabel} 螺丝`
+      ? `${count} 组 ${screwLabel} 六角固定柱 · ${count * 2} 颗 ${screwLabel} 螺丝`
       : '暂无可用固定柱';
   const vent = state.enclosure.vent;
   dom.mechanicalSummary.textContent =
-    `${count} 组固定柱 · ` +
+    `${count} 组六角固定柱 · ` +
     (vent.enabled ? `${formatNumber(vent.count)} 条通风槽` : '通风关闭');
   dom.bomList.innerHTML = rows
     .map(
@@ -542,13 +562,17 @@ function updateBom(actualMountCount = null) {
       '缺少有效板孔，无法生成一体固定柱。也可以在板子参考中增加安装孔。';
     dom.bomNote.classList.add('is-warning');
   } else if (incompatible) {
+    const smaller = fittingScrewSpec(smallest);
     dom.bomNote.textContent =
-      `开发板最小板孔为 ${formatNumber(smallest)} mm，当前固定柱过孔为 ` +
-      `${formatNumber(clearance)} mm。建议扩孔或改用更小的固定柱。`;
+      `开发板最小板孔为 ${formatNumber(smallest)} mm，${spec.label} 标准过孔为 ` +
+      `${formatNumber(clearance)} mm。` +
+      (smaller
+        ? `建议扩孔，或改用 ${smaller.label} 五金。`
+        : '建议扩孔后使用标准五金。');
     dom.bomNote.classList.add('is-warning');
   } else {
     dom.bomNote.textContent =
-      `下柱从底板拧入，上柱的螺纹穿过开发板孔与下柱对锁；顶/底各一颗 ${screwLabel} 面板螺丝。螺丝长度按固定柱螺纹深度和面板厚度微调。`;
+      `下柱从底板拧入，上柱的螺纹穿过开发板孔与下柱对锁；顶/底各一颗 ${screwLabel} 面板螺丝。${screwLabel} 采用 ${formatNumber(clearance)} mm 标准过孔，螺丝长度按固定柱螺纹深度和面板厚度微调。`;
     dom.bomNote.classList.remove('is-warning');
   }
 
@@ -556,8 +580,9 @@ function updateBom(actualMountCount = null) {
     'BoardForge 亚克力外壳五金清单',
     `外壳：${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ${formatNumber(dims.outerHeight)} mm`,
     `亚克力板：6 块 × ${formatNumber(t)} mm`,
-    `${screwLabel} 下固定柱（双内螺纹）：${count} × ${formatNumber(lowerLength)} mm`,
-    `${screwLabel} 上固定柱（内外螺纹）：${count} × ${formatNumber(upperLength)} mm`,
+    `五金规格：${screwLabel}，标准过孔 ${formatNumber(clearance)} mm`,
+    `${screwLabel} 下六角固定柱（双内螺纹）：${count} × ${formatNumber(lowerLength)} mm`,
+    `${screwLabel} 上六角固定柱（内外螺纹）：${count} × ${formatNumber(upperLength)} mm`,
     `${screwLabel} 顶/底面板螺丝：${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`,
     `${screwLabel} 平垫圈：${count * 2} 个（建议）`,
     `开发板固定柱过孔：${formatNumber(clearance)} mm`,
@@ -711,7 +736,6 @@ function caseLimitForPath(path) {
   if (path === 'clearance') return CASE_LIMITS.clearance;
   if (path === 'bottom_gap') return CASE_LIMITS.bottomGap;
   if (path === 'top_gap') return CASE_LIMITS.topGap;
-  if (path === 'screw_clearance') return CASE_LIMITS.screwClearance;
   if (path === 'fit') return CASE_LIMITS.fit;
   if (path === 'vent.count') return CASE_LIMITS.ventCount;
   if (path === 'vent.slot_width') return CASE_LIMITS.ventWidth;
@@ -940,6 +964,13 @@ function refreshHoleWarnings() {
 }
 
 /* ── Side-panel openings ────────────────────────────────────────────────── */
+
+function renderHardwareSpecOptions() {
+  dom.screwSpecSelect.innerHTML = SCREW_SPECS.map(
+    (spec) =>
+      `<option value="${spec.id}">${spec.label} · 过孔 ${formatNumber(spec.clearance)} mm</option>`,
+  ).join('');
+}
 
 function renderOpeningPresetOptions() {
   dom.openingPresetSelect.innerHTML = OPENING_PRESETS.map((preset) => {
@@ -2240,6 +2271,14 @@ function bindEvents() {
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') input.blur();
     });
+  });
+
+  dom.screwSpecSelect.addEventListener('change', () => {
+    const spec = screwSpecById(dom.screwSpecSelect.value);
+    if (!spec || state.enclosure.screw_clearance === spec.clearance) return;
+    state.enclosure.screw_clearance = spec.clearance;
+    updateDerivedUi();
+    stateChanged();
   });
 
   dom.ventEnabledInput.addEventListener('change', () => {
