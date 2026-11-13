@@ -126,10 +126,14 @@ BoardForge 使用 UTF-8 纯文本 JSON 保存外壳参数。文件不包含三�
 innerWidth  = board.length + 2 × clearance
 innerDepth  = board.width  + 2 × clearance
 innerHeight = bottom_gap + board.thickness + top_gap
-outerWidth  = innerWidth  + 2 × panel_thickness
-outerDepth  = innerDepth  + 2 × panel_thickness
+wallWidth   = innerWidth  + 2 × panel_thickness
+wallDepth   = innerDepth  + 2 × panel_thickness
+outerWidth  = wallWidth   + 2 × 3 mm 顶/底外沿
+outerDepth  = wallDepth   + 2 × 3 mm 顶/底外沿
 outerHeight = innerHeight + 2 × panel_thickness
 ```
+
+顶板和底板每边比侧板外轮廓大 3 mm，用来形成封闭槽四周的压边；侧板外轮廓仍由 `wallWidth` / `wallDepth` 决定。
 
 ### 一体固定柱
 

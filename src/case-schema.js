@@ -70,6 +70,8 @@ export function screwSpecForClearance(value) {
   );
 }
 
+export const TOP_BOTTOM_OVERHANG = 3;
+
 export const DEFAULT_ENCLOSURE = Object.freeze({
   panel_thickness: 3,
   clearance: 2,
@@ -431,11 +433,14 @@ export function deriveCaseDimensions(state) {
   const boardWidth = Number(state.board.width);
   const boardThickness = Number(state.board.thickness);
 
+  const overhang = TOP_BOTTOM_OVERHANG;
   const innerWidth = boardLength + clearance * 2;
   const innerDepth = boardWidth + clearance * 2;
   const innerHeight = bottomGap + boardThickness + topGap;
-  const outerWidth = innerWidth + t * 2;
-  const outerDepth = innerDepth + t * 2;
+  const wallWidth = innerWidth + t * 2;
+  const wallDepth = innerDepth + t * 2;
+  const outerWidth = wallWidth + overhang * 2;
+  const outerDepth = wallDepth + overhang * 2;
   const outerHeight = innerHeight + t * 2;
 
   const maxCorner = maxCornerRadius(boardLength, boardWidth);
@@ -448,9 +453,12 @@ export function deriveCaseDimensions(state) {
     innerWidth,
     innerDepth,
     innerHeight,
+    wallWidth,
+    wallDepth,
     outerWidth,
     outerDepth,
     outerHeight,
+    topBottomOverhang: overhang,
     boardLength,
     boardWidth,
     boardThickness,
@@ -460,14 +468,14 @@ export function deriveCaseDimensions(state) {
     boardTopZ: t + bottomGap + boardThickness,
     topInnerZ: t + innerHeight,
     sidePanelWidthFront: innerWidth,
-    sidePanelWidthSide: outerDepth,
+    sidePanelWidthSide: wallDepth,
     sidePanelHeight: innerHeight,
   };
 }
 
 export function sidePanelWidth(side, dimensions) {
   return side === 'left' || side === 'right'
-    ? dimensions.outerDepth
+    ? dimensions.wallDepth
     : dimensions.innerWidth;
 }
 

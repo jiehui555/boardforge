@@ -184,8 +184,8 @@ try {
     'enclosure dimensions are open by default',
   );
   ok(await page.locator('#lengthInput').isHidden(), 'collapsed board reference hides its fields');
-  ok(initial.diagnostics.outer.width === 95, 'default outer width is a snug 95 mm');
-  ok(initial.diagnostics.outer.depth === 66, 'default outer depth is a snug 66 mm');
+  ok(initial.diagnostics.outer.width === 101, 'default outer width includes the 3 mm retaining lip');
+  ok(initial.diagnostics.outer.depth === 72, 'default outer depth includes the 3 mm retaining lip');
   ok(initial.diagnostics.outer.height === 29.6, 'default outer height is 29.6 mm');
   ok(initial.diagnostics.boardWatertight, 'board reference remains watertight');
   ok((await page.locator('#modelStatusText').textContent()).includes('6 面板'), 'status reports six panels');
@@ -445,7 +445,7 @@ try {
   await page.locator('#panelThicknessInput').fill('4');
   await waitIdle();
   const thicker = await diagnostics();
-  ok(thicker.outer.width === 97 && thicker.outer.depth === 68, 'panel thickness increases outer dimensions');
+  ok(thicker.outer.width === 103 && thicker.outer.depth === 74, 'panel thickness increases outer dimensions');
   ok(thicker.outer.height === 31.6, 'panel thickness increases outer height');
   ok(thicker.boardFromCache, 'enclosure-only edits reuse the cached board reference');
 
@@ -453,7 +453,7 @@ try {
   await page.locator('#clearanceInput').fill('8');
   await waitIdle();
   const wider = await diagnostics();
-  ok(wider.outer.width === 107 && wider.outer.depth === 78, 'clearance increases outer footprint');
+  ok(wider.outer.width === 113 && wider.outer.depth === 84, 'clearance increases outer footprint');
   await page.locator('#clearanceInput').fill('6');
   await waitIdle();
 
@@ -465,7 +465,7 @@ try {
   const longerBoard = await state();
   ok(longerBoard.board.length === 90, 'board length can be edited');
   const boardChangedDiagnostics = await diagnostics();
-  ok(boardChangedDiagnostics.outer.width === 108, 'board length feeds the enclosure dimensions');
+  ok(boardChangedDiagnostics.outer.width === 114, 'board length feeds the enclosure dimensions');
   ok(!boardChangedDiagnostics.boardFromCache, 'board edits invalidate the cached reference model');
   await page.locator('#lengthInput').fill('85');
   await waitIdle();

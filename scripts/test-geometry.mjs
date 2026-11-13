@@ -99,11 +99,16 @@ ok(defaults.enclosure.panel_thickness === 3, 'default acrylic thickness is 3 mm'
 ok(defaults.enclosure.clearance === 2, 'default edge clearance is a snug 2 mm');
 
 const dimensions = deriveCaseDimensions(defaults);
-ok(dimensions.outerWidth === 95, 'default outer width is derived correctly');
-ok(dimensions.outerDepth === 66, 'default outer depth is derived correctly');
+ok(dimensions.innerWidth === 89, 'default inner width is unchanged');
+ok(dimensions.innerDepth === 60, 'default inner depth is unchanged');
+ok(dimensions.wallWidth === 95, 'side-wall width is derived correctly');
+ok(dimensions.wallDepth === 66, 'side-wall depth is derived correctly');
+ok(dimensions.outerWidth === 101, 'top/bottom overhang increases outer width');
+ok(dimensions.outerDepth === 72, 'top/bottom overhang increases outer depth');
 ok(dimensions.outerHeight === 29.6, 'default outer height is derived correctly');
 ok(dimensions.innerHeight === 23.6, 'default inner height is derived correctly');
-ok(caseFileStem(defaults, dimensions) === 'board-case-95x66x29.6', 'case filename is derived from outer dimensions');
+ok(dimensions.topBottomOverhang === 3, 'top/bottom retaining lip is 3 mm');
+ok(caseFileStem(defaults, dimensions) === 'board-case-101x72x29.6', 'case filename is derived from outer dimensions');
 
 // Round-trip and legacy board migration.
 const roundTrip = normalizeCaseState(toCaseDocument(defaults, { touch: false }));
@@ -220,6 +225,27 @@ const bottom = model.panels.find((panel) => panel.id === 'bottom');
 const top = model.panels.find((panel) => panel.id === 'top');
 ok(bottom.holes.length > 4, 'bottom panel contains screws, mounts and vents');
 ok(top.holes.length >= 4, 'top panel contains corner screws and vents');
+const topSideSlots = top.holes.filter((hole) => hole.type === 'side-slot');
+const bottomSideSlots = bottom.holes.filter((hole) => hole.type === 'side-slot');
+ok(topSideSlots.length === 8, 'top panel has eight closed side-panel slots');
+ok(bottomSideSlots.length === 8, 'bottom panel has eight closed side-panel slots');
+ok(
+  [...topSideSlots, ...bottomSideSlots].every(
+    (hole) =>
+      hole.bounds.minX >= 2.5 &&
+      hole.bounds.minY >= 2.5 &&
+      hole.bounds.maxX <= dimensions.outerWidth - 2.5 &&
+      hole.bounds.maxY <= dimensions.outerDepth - 2.5,
+  ),
+  'side-panel slots are fully enclosed by a retaining rim',
+);
+ok(
+  top.bounds.width === dimensions.outerWidth &&
+    top.bounds.height === dimensions.outerDepth &&
+    bottom.bounds.width === dimensions.outerWidth &&
+    bottom.bounds.height === dimensions.outerDepth,
+  'top and bottom panels retain the full overhanging outline',
+);
 
 // Valid and invalid side-panel openings.
 const openingState = createDefaultCaseState();

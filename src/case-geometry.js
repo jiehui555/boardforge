@@ -319,7 +319,11 @@ function buildSidePanels(state, dims, warnings) {
         [1, 0, 0],
         [0, 0, 1],
         [0, -1, 0],
-        [-frontBackWidth / 2, -dims.outerDepth / 2 + t, t],
+        [
+          -frontBackWidth / 2,
+          -dims.outerDepth / 2 + dims.topBottomOverhang + t,
+          t,
+        ],
       ),
     },
     {
@@ -343,7 +347,11 @@ function buildSidePanels(state, dims, warnings) {
         [-1, 0, 0],
         [0, 0, 1],
         [0, 1, 0],
-        [frontBackWidth / 2, dims.outerDepth / 2 - t, t],
+        [
+          frontBackWidth / 2,
+          dims.outerDepth / 2 - dims.topBottomOverhang - t,
+          t,
+        ],
       ),
     },
     {
@@ -367,7 +375,11 @@ function buildSidePanels(state, dims, warnings) {
         [0, 1, 0],
         [0, 0, 1],
         [1, 0, 0],
-        [-dims.outerWidth / 2, -dims.outerDepth / 2, t],
+        [
+          -dims.outerWidth / 2 + dims.topBottomOverhang,
+          -dims.outerDepth / 2 + dims.topBottomOverhang,
+          t,
+        ],
       ),
     },
     {
@@ -391,7 +403,11 @@ function buildSidePanels(state, dims, warnings) {
         [0, -1, 0],
         [0, 0, 1],
         [-1, 0, 0],
-        [dims.outerWidth / 2, dims.outerDepth / 2, t],
+        [
+          dims.outerWidth / 2 - dims.topBottomOverhang,
+          dims.outerDepth / 2 - dims.topBottomOverhang,
+          t,
+        ],
       ),
     },
   ];
@@ -537,42 +553,38 @@ function buildVentHoles(state, dims, panelWidth, panelDepth, blocked, warnings) 
 function buildTopBottomPanels(state, dims, sideData, panelHoles) {
   const t = dims.panelThickness;
   const fit = state.enclosure.fit;
-  const notchDepth = t + fit;
+  const overhang = dims.topBottomOverhang;
   const outerW = dims.outerWidth;
   const outerD = dims.outerDepth;
   const warnings = [];
 
-  const frontPanel = sideData.panels.find((panel) => panel.id === 'front');
-  const backPanel = sideData.panels.find((panel) => panel.id === 'back');
-  const leftPanel = sideData.panels.find((panel) => panel.id === 'left');
-  const rightPanel = sideData.panels.find((panel) => panel.id === 'right');
-
-  const frontGlobalX = frontPanel.topTabs.map((item) => ({
-    start: -dims.innerWidth / 2 + item.start - fit,
-    end: -dims.innerWidth / 2 + item.end + fit,
-  }));
-  const backGlobalX = backPanel.topTabs.map((item) => ({
-    start: dims.innerWidth / 2 - item.end - fit,
-    end: dims.innerWidth / 2 - item.start + fit,
-  }));
-  const leftGlobalY = leftPanel.topTabs.map((item) => ({
-    start: -dims.outerDepth / 2 + item.start - fit,
-    end: -dims.outerDepth / 2 + item.end + fit,
-  }));
-  const rightGlobalY = rightPanel.topTabs.map((item) => ({
-    start: dims.outerDepth / 2 - item.end - fit,
-    end: dims.outerDepth / 2 - item.start + fit,
-  }));
-
-  const localX = (values) => values.map((item) => ({ start: item.start + outerW / 2, end: item.end + outerW / 2 }));
-  const localY = (values) => values.map((item) => ({ start: item.start + outerD / 2, end: item.end + outerD / 2 }));
-
-  const bottomEdges = {
-    bottom: asFeatures(localX(frontGlobalX), -notchDepth),
-    top: asFeatures(localX(backGlobalX), -notchDepth),
-    left: asFeatures(localY(leftGlobalY), -notchDepth),
-    right: asFeatures(localY(rightGlobalY), -notchDepth),
+  const slotWidth = t + fit * 2;
+  const slotHoles = [];
+  const addSlot = (cx, cy, width, height) => {
+    slotHoles.push(
+      makeHole('rect', {
+        cx,
+        cy,
+        width,
+        height,
+        radius: Math.min(1, width / 3, height / 3),
+        type: 'side-slot',
+      }),
+    );
   };
+
+  for (const tab of sideData.frontTabs) {
+    const mid = (tab.start + tab.end) / 2;
+    const width = tab.end - tab.start + fit * 2;
+    addSlot(overhang + t + mid, overhang + t / 2, width, slotWidth);
+    addSlot(outerW - overhang - t - mid, outerD - overhang - t / 2, width, slotWidth);
+  }
+  for (const tab of sideData.sideTabs) {
+    const mid = (tab.start + tab.end) / 2;
+    const height = tab.end - tab.start + fit * 2;
+    addSlot(overhang + t / 2, overhang + mid, slotWidth, height);
+    addSlot(outerW - overhang - t / 2, outerD - overhang - mid, slotWidth, height);
+  }
 
   const panelMakers = [
     {
@@ -594,12 +606,12 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
   ];
 
   const panels = panelMakers.map((maker) => {
-    const outline = buildRectilinearOutline(outerW, outerD, bottomEdges);
-    const blocked = maker.extraHoles
-      .filter((hole) => hole.type === 'column-screw')
+    const outline = buildRectilinearOutline(outerW, outerD);
+    const blocked = [...maker.extraHoles, ...slotHoles]
+      .filter((hole) => hole.type === 'column-screw' || hole.type === 'side-slot')
       .map((hole) => hole.bounds);
     const ventHoles = buildVentHoles(state, dims, outerW, outerD, blocked, warnings);
-    const holes = [...maker.extraHoles, ...ventHoles];
+    const holes = [...slotHoles, ...maker.extraHoles, ...ventHoles];
     return {
       id: maker.id,
       label: maker.label,
