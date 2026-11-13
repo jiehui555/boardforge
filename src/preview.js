@@ -11,6 +11,8 @@ const VIEW_DIRECTIONS = Object.freeze({
 });
 
 const ORBIT_UP = new THREE.Vector3(0, 1, 0);
+const STANDOFF_BOARD_OVERLAP = 0.06;
+const SHADOW_PLANE_Z = -0.25;
 
 function smoothstep(value) {
   return value * value * (3 - 2 * value);
@@ -250,7 +252,7 @@ export class BoardPreview {
         transparent: true,
       }),
     );
-    this.shadowPlane.position.z = -0.03;
+    this.shadowPlane.position.z = SHADOW_PLANE_Z;
     this.shadowPlane.receiveShadow = true;
     this.scene.add(this.shadowPlane);
   }
@@ -371,20 +373,39 @@ export class BoardPreview {
     this.boardMesh.receiveShadow = true;
     this.boardGroup.add(this.boardMesh);
 
+    // Sink standoff ends slightly into the board. Their end caps would
+    // otherwise be exactly coplanar with the opaque board and z-fight while
+    // the camera is still easing after a drag.
     for (const standoff of model.hardware.lowerStandoffs) {
       const mesh = new THREE.Mesh(
-        makeCylinder(standoff.radius, standoff.height, standoff.x, standoff.y, standoff.z, 6),
+        makeCylinder(
+          standoff.radius,
+          standoff.height + STANDOFF_BOARD_OVERLAP,
+          standoff.x,
+          standoff.y,
+          standoff.z,
+          6,
+        ),
         this.brassMaterial,
       );
+      mesh.position.z = STANDOFF_BOARD_OVERLAP / 2;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.hardwareGroup.add(mesh);
     }
     for (const standoff of model.hardware.upperStandoffs) {
       const mesh = new THREE.Mesh(
-        makeCylinder(standoff.radius, standoff.height, standoff.x, standoff.y, standoff.z, 6),
+        makeCylinder(
+          standoff.radius,
+          standoff.height + STANDOFF_BOARD_OVERLAP,
+          standoff.x,
+          standoff.y,
+          standoff.z,
+          6,
+        ),
         this.brassMaterial,
       );
+      mesh.position.z = -STANDOFF_BOARD_OVERLAP / 2;
       mesh.castShadow = true;
       mesh.receiveShadow = true;
       this.hardwareGroup.add(mesh);
