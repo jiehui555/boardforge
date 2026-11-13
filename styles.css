@@ -1311,6 +1311,13 @@ html[data-mode="light"] .mode-icon-sun {
 
 /* ── Side-panel openings ────────────────────────────────────────────────── */
 
+.opening-view-note {
+  margin: -2px 0 10px;
+  color: var(--dim);
+  font-size: 9.5px;
+  line-height: 1.5;
+}
+
 .opening-list {
   display: flex;
   flex-direction: column;
@@ -1704,7 +1711,9 @@ html[data-mode="light"] .mode-icon-sun {
 
 .scene-controls {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: flex-end;
   gap: 7px;
   pointer-events: auto;
 }
@@ -2610,6 +2619,25 @@ html[data-mode="light"] .toast-icon {
 
   .view-switch {
     align-self: flex-start;
+  }
+
+  .view-switch button {
+    min-width: 38px;
+    padding: 0 6px;
+    font-size: 10px;
+  }
+
+  .projection-button,
+  .explode-button {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+    gap: 0;
+  }
+
+  .projection-button svg,
+  .explode-button svg {
+    display: none;
   }
 
   .model-status {

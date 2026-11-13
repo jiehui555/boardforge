@@ -186,6 +186,27 @@ try {
     'projection button switches back to perspective',
   );
 
+  // Orthographic-style side views are axis-aligned for accurate cut-out placement.
+  const sideViews = {
+    front: [0, -1, 0],
+    back: [0, 1, 0],
+    left: [-1, 0, 0],
+    right: [1, 0, 0],
+  };
+  ok((await page.locator('[data-view]').count()) === 6, 'all six view presets are available');
+  for (const [side, expected] of Object.entries(sideViews)) {
+    await page.locator(`[data-view="${side}"]`).click();
+    await page.waitForTimeout(460);
+    const camera = await page.evaluate(() => window.boardForge.getCamera());
+    ok(camera.view === side, `${side} view becomes active`);
+    ok(
+      camera.direction.every((value, index) => Math.abs(value - expected[index]) < 0.02),
+      `${side} view is perpendicular to its panel`,
+    );
+  }
+  await page.locator('[data-view="iso"]').click();
+  await page.waitForTimeout(460);
+
   // Theme and mode controls remain available in the enclosure-first UI.
   await page.locator('#themeButton').click();
   await page.locator('[data-theme-preset="sky"]').click();

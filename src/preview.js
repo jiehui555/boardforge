@@ -4,8 +4,10 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 const VIEW_DIRECTIONS = Object.freeze({
   iso: { direction: [0.98, -1.28, 1.02], up: [0, 0, 1] },
   top: { direction: [0, 0, 1], up: [0, 1, 0] },
-  front: { direction: [0, -1, 0.2], up: [0, 0, 1] },
-  right: { direction: [1, 0, 0.2], up: [0, 0, 1] },
+  front: { direction: [0, -1, 0], up: [0, 0, 1] },
+  back: { direction: [0, 1, 0], up: [0, 0, 1] },
+  left: { direction: [-1, 0, 0], up: [0, 0, 1] },
+  right: { direction: [1, 0, 0], up: [0, 0, 1] },
 });
 
 function smoothstep(value) {
@@ -387,6 +389,20 @@ export class BoardPreview {
     if (!VIEW_DIRECTIONS[view]) return;
     this.view = view;
     this.fitView(view, animate);
+  }
+
+  getCameraState() {
+    const direction = this.camera.position
+      .clone()
+      .sub(this.controls.target)
+      .normalize();
+    return {
+      projection: this.projection,
+      view: this.view,
+      direction: direction.toArray(),
+      up: this.camera.up.toArray(),
+      target: this.controls.target.toArray(),
+    };
   }
 
   fitView(view = this.view, animate = true) {

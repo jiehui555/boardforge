@@ -1150,10 +1150,10 @@ function readProjectionMode() {
 
 function syncProjectionUi() {
   const orthographic = currentProjection === 'orthographic';
+  const actionLabel = orthographic ? '切换到透视投影' : '切换到正交投影';
   dom.projectionButton.setAttribute('aria-pressed', String(orthographic));
-  dom.projectionButton.title = orthographic
-    ? '切换到透视投影'
-    : '切换到正交投影';
+  dom.projectionButton.title = actionLabel;
+  dom.projectionButton.setAttribute('aria-label', actionLabel);
   dom.projectionButtonLabel.textContent = orthographic ? '正交' : '透视';
 }
 
@@ -1728,6 +1728,7 @@ function exposeDebugApi() {
       getTheme: () => currentThemeColor,
       getMode: () => currentMode,
       getProjection: () => currentProjection,
+      getCamera: () => (preview ? preview.getCameraState() : null),
       isBusy: () => isBuilding || modelDirty,
       setView: (view) => requestView(view),
       setExploded: (value) => {

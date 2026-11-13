@@ -68,7 +68,7 @@
             <span id="modeButtonLabel">深色</span>
           </button>
           <div class="theme-anchor">
-            <button class="btn btn-quiet theme-button" id="themeButton" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="themeMenu" title="设置界面主题色">
+            <button class="btn btn-quiet theme-button" id="themeButton" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="themeMenu" title="设置界面主题色" aria-label="设置界面主题色">
               <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3a7 7 0 1 0 0 14h1.2a1.8 1.8 0 0 0 0-3.6h-.6a1.4 1.4 0 0 1 0-2.8h2.5A4.9 4.9 0 0 0 18 5.7C17.2 4.1 13.9 3 10 3Z" /><circle cx="6.3" cy="8" r=".8" /><circle cx="10" cy="6.2" r=".8" /><circle cx="13.7" cy="8.1" r=".8" /></svg>
               <span>主题</span>
               <i class="theme-dot" aria-hidden="true"></i>
@@ -101,7 +101,7 @@
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6.5A6.5 6.5 0 1 1 3.5 10M4 2.5v4h4" /></svg>
             <span>新建</span>
           </button>
-          <button class="btn btn-quiet" id="importButton" type="button">
+          <button class="btn btn-quiet" id="importButton" type="button" aria-label="导入参数文件">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v9m0 0 3-3m-3 3-3-3M4 12.5v3A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
             <span>导入参数</span>
           </button>
@@ -260,6 +260,7 @@
                 </span>
                 <span>位置相对侧板中心<br /><b>U</b> 水平 · <b>V</b> 垂直</span>
               </div>
+              <p class="opening-view-note">定位开孔时，建议切换到「正交」投影和对应的前/后/左/右视图。</p>
 
               <div class="opening-list" id="openingList"></div>
               <p class="holes-hint" id="openingsHint" hidden></p>
@@ -340,7 +341,7 @@
                 </summary>
                 <div class="info-body">
                   <p>六块亚克力板通过榫舌/榫槽互锁。开发板安装孔位上下各有一段固定柱，把顶板、开发板和底板串成同一组固定结构。</p>
-                  <p>开孔坐标以侧板中心为原点，U 为水平方向，V 为垂直方向。侧板开孔超出可加工区域时会自动跳过并提示。</p>
+                  <p>开孔坐标以侧板中心为原点，U 为水平方向，V 为垂直方向。定位时建议使用正交投影和对应侧视，避免透视变形。侧板开孔超出可加工区域时会自动跳过并提示。</p>
                   <p>DXF/SVG 为毫米单位激光切割路径，未包含激光补偿；STL 是装配预览，不是单块可打印实体。</p>
                   <p>板子颜色只影响 3D 参考模型，不进入切割文件。</p>
                 </div>
@@ -388,15 +389,17 @@
               <div class="view-switch" role="group" aria-label="视角">
                 <button type="button" data-view="iso" class="active">立体</button>
                 <button type="button" data-view="top">顶视</button>
-                <button type="button" data-view="front">前视</button>
-                <button type="button" data-view="right">右视</button>
+                <button type="button" data-view="front" title="从前面板观察，适合设置前侧开孔">前视</button>
+                <button type="button" data-view="back" title="从后面板观察，适合设置后侧开孔">后视</button>
+                <button type="button" data-view="left" title="从左面板观察，适合设置左侧开孔">左视</button>
+                <button type="button" data-view="right" title="从右面板观察，适合设置右侧开孔">右视</button>
               </div>
-              <button class="projection-button" id="projectionButton" type="button" aria-pressed="false" title="切换到正交投影">
+              <button class="projection-button" id="projectionButton" type="button" aria-pressed="false" title="切换到正交投影" aria-label="切换到正交投影">
                 <svg class="projection-icon projection-icon-perspective" viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 5.5h15l-2.5 9H5z" /></svg>
                 <svg class="projection-icon projection-icon-orthographic" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14v9H3z" /></svg>
                 <span id="projectionButtonLabel">透视</span>
               </button>
-              <button class="explode-button" id="explodeButton" type="button" aria-pressed="false" title="展开六块面板">
+              <button class="explode-button" id="explodeButton" type="button" aria-pressed="false" title="展开六块面板" aria-label="展开六块面板">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v4M10 13.5v4M2.5 10h4M13.5 10h4M5 5l2.5 2.5M12.5 12.5 15 15M15 5l-2.5 2.5M7.5 12.5 5 15" /></svg>
                 <span>爆炸</span>
               </button>
