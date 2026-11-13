@@ -143,6 +143,15 @@ ok(model.hardware.lowerStandoffs.length === 4, 'each column has a lower standoff
 ok(model.hardware.upperStandoffs.length === 4, 'each column has an upper standoff');
 ok(model.hardware.connectorShafts.length === 4, 'each column has a through-board connector');
 ok(model.hardware.screwHeads.length === 8, 'each column has top and bottom panel screws');
+ok(
+  model.hardware.screwHeads.every(
+    (screw) =>
+      screw.shaftRadius > 0 &&
+      screw.shaftLength > 0 &&
+      Number.isFinite(screw.shaftZ),
+  ),
+  'panel screws include a shaft through the acrylic panel',
+);
 ok(model.board.diagnostics.watertight, 'board reference remains watertight');
 ok(model.warnings.length === 0, 'default enclosure builds without warnings');
 ok(

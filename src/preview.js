@@ -26,6 +26,72 @@ function makeCylinder(radius, height, x, y, z, segments = 24) {
   return geometry;
 }
 
+function makeRoundedHead(radius, height, x, y, z, segments = 40) {
+  const top = height / 2;
+  const bottom = -height / 2;
+  const topFillet = Math.min(0.26, height * 0.3, radius * 0.18);
+  const bottomFillet = Math.min(0.08, height * 0.08, radius * 0.08);
+  const points = [new THREE.Vector2(0, bottom)];
+
+  points.push(new THREE.Vector2(radius - bottomFillet, bottom));
+  for (let index = 1; index <= 5; index += 1) {
+    const angle = (index / 5) * (Math.PI / 2);
+    points.push(
+      new THREE.Vector2(
+        radius - bottomFillet + Math.sin(angle) * bottomFillet,
+        bottom + bottomFillet - Math.cos(angle) * bottomFillet,
+      ),
+    );
+  }
+  points.push(new THREE.Vector2(radius, top - topFillet));
+  for (let index = 1; index <= 7; index += 1) {
+    const angle = (index / 7) * (Math.PI / 2);
+    points.push(
+      new THREE.Vector2(
+        radius - topFillet + Math.cos(angle) * topFillet,
+        top - topFillet + Math.sin(angle) * topFillet,
+      ),
+    );
+  }
+  points.push(new THREE.Vector2(0, top));
+
+  const geometry = new THREE.LatheGeometry(points, segments);
+  geometry.rotateX(Math.PI / 2);
+  geometry.translate(x, y, z);
+  geometry.deleteAttribute('uv');
+  return geometry;
+}
+
+function makeThreadedShaft(radius, height, x, y, z, segments = 20) {
+  const threadDepth = Math.min(0.18, Math.max(0.08, radius * 0.12));
+  const coreRadius = Math.max(0.3, radius - threadDepth);
+  const tubeRadius = Math.max(0.035, threadDepth * 0.32);
+  const threadRadius = coreRadius + threadDepth * 0.48;
+  const pitch = Math.min(0.75, Math.max(0.35, radius * 0.34));
+  const turns = Math.max(3, Math.round(height / pitch));
+  const pointsPerTurn = 14;
+  const total = turns * pointsPerTurn;
+  const points = [];
+
+  for (let index = 0; index <= total; index += 1) {
+    const t = index / total;
+    const angle = t * turns * Math.PI * 2;
+    points.push(
+      new THREE.Vector3(
+        x + Math.cos(angle) * threadRadius,
+        y + Math.sin(angle) * threadRadius,
+        z - height / 2 + t * height,
+      ),
+    );
+  }
+
+  const curve = new THREE.CatmullRomCurve3(points);
+  return {
+    core: makeCylinder(coreRadius, height, x, y, z, segments),
+    thread: new THREE.TubeGeometry(curve, total, tubeRadius, 5, false),
+  };
+}
+
 /**
  * Three.js preview for an acrylic enclosure assembly. Geometry ownership is
  * transferred from the case builder to this class on setModel().
@@ -112,6 +178,12 @@ export class BoardPreview {
       color: 0xb3955c,
       roughness: 0.36,
       metalness: 0.7,
+      flatShading: true,
+    });
+    this.socketMaterial = new THREE.MeshStandardMaterial({
+      color: 0x202724,
+      roughness: 0.48,
+      metalness: 0.45,
       flatShading: true,
     });
 
@@ -227,6 +299,24 @@ export class BoardPreview {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.hardwareGroup.add(mesh);
+  }
+
+  addScrewShaft(screw) {
+    const geometry = makeThreadedShaft(
+      screw.shaftRadius,
+      screw.shaftLength,
+      screw.x,
+      screw.y,
+      screw.shaftZ,
+    );
+    for (const part of [geometry.core, geometry.thread]) {
+      const mesh = new THREE.Mesh(part, this.steelMaterial);
+      // The shaft is mostly enclosed by the panel and standoff; keeping it out
+      // of the shadow map avoids fine thread shimmer during camera motion.
+      mesh.castShadow = false;
+      mesh.receiveShadow = true;
+      this.hardwareGroup.add(mesh);
+    }
   }
 
   createEnvironment() {
@@ -411,13 +501,46 @@ export class BoardPreview {
       this.hardwareGroup.add(mesh);
     }
     for (const screw of model.hardware.screwHeads) {
-      const mesh = new THREE.Mesh(
-        makeCylinder(screw.radius, screw.height, screw.x, screw.y, screw.z, 24),
+      const top = screw.z >= 0;
+      const headHeight = Math.max(0.9, screw.height);
+      const headZ = top
+        ? this.bounds.height + headHeight / 2
+        : -headHeight / 2;
+      // Flat-head machine screws have a cylindrical head with a flat
+      // underside; no countersink cone is used.
+      const head = new THREE.Mesh(
+        makeRoundedHead(
+          screw.radius,
+          headHeight,
+          screw.x,
+          screw.y,
+          headZ,
+          40,
+        ),
         this.steelMaterial,
       );
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-      this.hardwareGroup.add(mesh);
+      head.castShadow = true;
+      head.receiveShadow = true;
+      this.hardwareGroup.add(head);
+
+      if (screw.shaftLength > 0.05) this.addScrewShaft(screw);
+
+      const socketZ = top
+        ? this.bounds.height + headHeight + 0.015
+        : -headHeight - 0.015;
+      const socket = new THREE.Mesh(
+        makeCylinder(
+          Math.max(0.72, screw.radius * 0.34),
+          0.03,
+          screw.x,
+          screw.y,
+          socketZ,
+          6,
+        ),
+        this.socketMaterial,
+      );
+      socket.receiveShadow = true;
+      this.hardwareGroup.add(socket);
     }
 
     this.applyExplosion();
@@ -645,6 +768,7 @@ export class BoardPreview {
     this.boardMaterial.dispose();
     this.steelMaterial.dispose();
     this.brassMaterial.dispose();
+    this.socketMaterial.dispose();
     this.grid.geometry.dispose();
     this.grid.material.dispose();
     this.shadowPlane.geometry.dispose();

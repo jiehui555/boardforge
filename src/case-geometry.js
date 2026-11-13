@@ -675,20 +675,30 @@ function buildHardware(dims, mounts) {
     height: Math.max(0.05, dims.boardThickness),
   }));
   const screwHeads = [];
+  const bottomShaftLength = t + Math.min(2, dims.bottomGap * 0.5);
+  const topShaftLength = t + Math.min(2, dims.topGap * 0.5);
   for (const mount of mounts) {
+    const shaftDiameter = Math.max(0.9, mount.diameter - 0.4);
+    const radius = mount.diameter / 2 + 1.2;
     screwHeads.push({
       x: mount.x,
       y: mount.y,
       z: dims.outerHeight + 0.6,
-      radius: mount.diameter / 2 + 1.2,
+      radius,
       height: 1.2,
+      shaftRadius: Math.max(0.45, shaftDiameter / 2),
+      shaftLength: topShaftLength,
+      shaftZ: dims.outerHeight - topShaftLength / 2,
     });
     screwHeads.push({
       x: mount.x,
       y: mount.y,
       z: -0.6,
-      radius: mount.diameter / 2 + 1.2,
+      radius,
       height: 1.2,
+      shaftRadius: Math.max(0.45, shaftDiameter / 2),
+      shaftLength: bottomShaftLength,
+      shaftZ: bottomShaftLength / 2,
     });
   }
   return { lowerStandoffs, upperStandoffs, connectorShafts, screwHeads };
@@ -898,6 +908,16 @@ export function buildAssemblyGeometry(model) {
   for (const screw of model.hardware.screwHeads) {
     parts.push(
       hardwareCylinder(screw.radius, screw.height, screw.x, screw.y, screw.z, 24),
+    );
+    parts.push(
+      hardwareCylinder(
+        screw.shaftRadius,
+        screw.shaftLength,
+        screw.x,
+        screw.y,
+        screw.shaftZ,
+        20,
+      ),
     );
   }
   const merged = mergePositionNormals(parts);

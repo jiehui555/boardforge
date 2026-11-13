@@ -165,6 +165,7 @@ try {
   ok(initial.diagnostics.lowerStandoffCount === 4, 'four lower standoffs are generated');
   ok(initial.diagnostics.upperStandoffCount === 4, 'four upper standoffs are generated');
   ok(initial.diagnostics.connectorShaftCount === 4, 'through-board connectors are generated');
+  ok(initial.diagnostics.screwShaftCount === 8, 'all eight panel screws include shafts');
   ok(initial.diagnostics.boardFromCache === false, 'first build creates the board reference');
   ok(initial.diagnostics.warnings.length === 0, 'default enclosure has no warnings');
   ok((await page.locator('#panelMap svg').count()) === 1, '2D side-panel editor renders');

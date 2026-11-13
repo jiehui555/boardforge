@@ -2558,6 +2558,7 @@ function exposeDebugApi() {
               lowerStandoffCount: model.hardware.lowerStandoffs.length,
               upperStandoffCount: model.hardware.upperStandoffs.length,
               connectorShaftCount: model.hardware.connectorShafts.length,
+              screwShaftCount: model.hardware.screwHeads.length,
               boardFromCache: model.boardFromCache,
               columns: model.mounts.map((mount) => ({
                 x: mount.x,
