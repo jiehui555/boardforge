@@ -20,6 +20,7 @@ import {
 import {
   buildCutDxf,
   buildCutSvg,
+  cutSheetBounds,
 } from '../src/vector-export.js';
 import { inspectGeometry } from '../src/board-geometry.js';
 import { binaryStlTriangleCount, createBinaryStl } from '../src/stl-export.js';
@@ -34,6 +35,58 @@ let checks = 0;
 function ok(condition, message) {
   assert.ok(condition, message);
   checks += 1;
+}
+
+function parseDxf(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  while (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+  assert.equal(lines.length % 2, 0, 'DXF group code/value lines must be paired');
+
+  const pairs = [];
+  for (let index = 0; index < lines.length; index += 2) {
+    const code = Number(lines[index].trim());
+    assert.ok(Number.isInteger(code), `DXF group code must be numeric: ${lines[index]}`);
+    pairs.push({ code, value: lines[index + 1] });
+  }
+
+  const sections = new Map();
+  let current = null;
+  for (let index = 0; index < pairs.length; index += 1) {
+    const pair = pairs[index];
+    if (pair.code === 0 && pair.value.trim() === 'SECTION') {
+      const namePair = pairs[index + 1];
+      assert.ok(namePair?.code === 2, 'DXF SECTION must declare a name');
+      current = { name: namePair.value.trim(), pairs: [] };
+      sections.set(current.name, current);
+      index += 1;
+      continue;
+    }
+    if (pair.code === 0 && pair.value.trim() === 'ENDSEC') {
+      current = null;
+      continue;
+    }
+    if (current) current.pairs.push(pair);
+  }
+
+  return { pairs, sections };
+}
+
+function dxfRecords(section) {
+  const records = [];
+  let current = null;
+  for (const pair of section?.pairs || []) {
+    if (pair.code === 0) {
+      current = { type: pair.value.trim(), pairs: [] };
+      records.push(current);
+    } else if (current) {
+      current.pairs.push(pair);
+    }
+  }
+  return records;
+}
+
+function recordValue(record, code) {
+  return record.pairs.find((pair) => pair.code === code)?.value;
 }
 
 // Case schema defaults and dimensions.
@@ -254,10 +307,81 @@ for (const preset of PRESETS) {
 // Vector exports.
 const dxf = buildCutDxf(openingModel);
 const svg = buildCutSvg(openingModel);
+const dxfLayout = cutSheetBounds(openingModel);
+const parsedDxf = parseDxf(dxf);
+const header = parsedDxf.sections.get('HEADER');
+const headerValue = (name) => {
+  const index = header?.pairs.findIndex(
+    (pair) => pair.code === 9 && pair.value.trim() === name,
+  );
+  return index >= 0 ? header.pairs[index + 1]?.value.trim() : undefined;
+};
+const dxfEntities = dxfRecords(parsedDxf.sections.get('ENTITIES'));
+const dxfPolylines = dxfEntities.filter((record) => record.type === 'POLYLINE');
+const dxfTexts = dxfEntities.filter((record) => record.type === 'TEXT');
+const dxfTextContent = dxfTexts.map((record) => recordValue(record, 1)).join(' | ');
+
 ok(dxf.includes('AC1009'), 'DXF uses R12 compatibility header');
-ok(dxf.includes('$INSUNITS'), 'DXF declares units');
-ok(dxf.includes('LAYER\n2\nCUT'), 'DXF uses a CUT layer');
-ok((dxf.match(/POLYLINE/g) || []).length >= 6, 'DXF contains panel outlines');
+ok(/^[\x00-\x7F]*$/.test(dxf), 'DXF is ASCII-only for R12 compatibility');
+ok(parsedDxf.sections.has('HEADER'), 'DXF has a HEADER section');
+ok(parsedDxf.sections.has('TABLES'), 'DXF has a TABLES section');
+ok(parsedDxf.sections.has('BLOCKS'), 'DXF has a BLOCKS section');
+ok(parsedDxf.sections.has('ENTITIES'), 'DXF has an ENTITIES section');
+ok(
+  parsedDxf.pairs.at(-1)?.code === 0 && parsedDxf.pairs.at(-1)?.value.trim() === 'EOF',
+  'DXF terminates with EOF',
+);
+ok(headerValue('$INSUNITS') === '4', 'DXF declares millimetres');
+ok(headerValue('$DWGCODEPAGE') === 'ANSI_1252', 'DXF declares a code page');
+ok(headerValue('$TEXTSTYLE') === 'STANDARD', 'DXF declares a text style');
+ok(headerValue('$CLAYER') === 'CUT', 'DXF sets the current layer to CUT');
+ok(headerValue('$LIMMAX') !== undefined, 'DXF has drawing limits');
+ok(dxf.includes('0\nLTYPE\n2\nCONTINUOUS'), 'DXF defines a continuous linetype');
+ok(dxf.includes('0\nSTYLE\n2\nSTANDARD'), 'DXF defines a STANDARD text style');
+ok(dxf.includes('0\nLAYER\n2\n0\n'), 'DXF defines layer 0');
+ok(dxf.includes('0\nLAYER\n2\nCUT\n'), 'DXF uses a CUT layer');
+ok(dxf.includes('0\nLAYER\n2\nANNOTATION\n'), 'DXF uses an ANNOTATION layer');
+ok(dxfPolylines.length >= 6, 'DXF contains panel outlines');
+ok(
+  dxfPolylines.every(
+    (record) =>
+      recordValue(record, 8) === 'CUT' &&
+      (Number(recordValue(record, 70)) & 1) === 1,
+  ),
+  'all DXF cut polylines are closed and on the CUT layer',
+);
+ok(dxfTexts.length >= 9, 'DXF includes title, sheet notes and six part labels');
+ok(
+  dxfTexts.every((record) => recordValue(record, 8) === 'ANNOTATION'),
+  'all DXF annotations are on the ANNOTATION layer',
+);
+ok(
+  ['TOP', 'BOTTOM', 'FRONT', 'BACK', 'LEFT', 'RIGHT'].every((label) =>
+    dxfTextContent.includes(label),
+  ),
+  'DXF labels all six panels',
+);
+ok(
+  dxfTextContent.includes('SHEET') &&
+    dxfTextContent.includes('ACRYLIC') &&
+    dxfTextContent.includes('CUT = CUTTING'),
+  'DXF annotations include sheet, material and layer information',
+);
+ok(
+  dxfTexts.every((record) => {
+    const x = Number(recordValue(record, 10));
+    const y = Number(recordValue(record, 20));
+    return (
+      Number.isFinite(x) &&
+      Number.isFinite(y) &&
+      x >= 0 &&
+      x <= dxfLayout.sheetWidth &&
+      y >= 0 &&
+      y <= dxfLayout.sheetHeight
+    );
+  }),
+  'DXF annotations stay inside the sheet',
+);
 ok(svg.includes('viewBox='), 'SVG has a millimetre viewBox');
 ok(svg.includes('width="'), 'SVG has physical dimensions');
 ok(svg.includes('<g id="top"'), 'SVG includes a named top-panel group');

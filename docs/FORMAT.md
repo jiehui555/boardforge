@@ -181,4 +181,5 @@ outerHeight = innerHeight + 2 × panel_thickness
 
 - UI 主题色、深色/浅色模式以及透视/正交投影方式属于浏览器偏好，保存在 `localStorage`，不属于外壳参数文件。
 - DXF/SVG 使用毫米单位，未包含激光 kerf 补偿。
+- DXF 为 ASCII R12：`CUT` 图层是闭合切割路径，`ANNOTATION` 图层是标题、幅面和零件尺寸标注；导出后可在激光软件中关闭标注层。
 - STL 是装配预览，不是单一的可打印外壳实体。

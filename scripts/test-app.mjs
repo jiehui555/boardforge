@@ -667,8 +667,12 @@ try {
   const dxf = await readFile(dxfPath, 'utf8');
   ok(dxf.includes('AC1009'), 'DXF is R12-compatible');
   ok(dxf.includes('$INSUNITS'), 'DXF declares units');
+  ok(dxf.includes('$TEXTSTYLE') && dxf.includes('2\nBLOCKS'), 'DXF includes standard tables and blocks');
   ok(dxf.includes('LAYER\n2\nCUT'), 'DXF contains a CUT layer');
+  ok(dxf.includes('LAYER\n2\nANNOTATION'), 'DXF contains an ANNOTATION layer');
   ok((dxf.match(/POLYLINE/g) || []).length >= 6, 'DXF contains six panel outlines');
+  ok(dxf.includes('TEXT\n8\nANNOTATION'), 'DXF includes non-cutting text annotations');
+  ok(dxf.includes('1\nSHEET') && dxf.includes('1\nTOP'), 'DXF annotations include sheet info and panel labels');
 
   const stlPath = join(work, 'case-assembly.stl');
   const stlDownload = await download('#exportStlButton', stlPath);

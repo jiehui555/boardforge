@@ -402,7 +402,7 @@
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h8l4 4v9H4zM12 3.5v4h4" /><path d="M7 12h6M7 14.5h4" /></svg>
                 <span>SVG</span>
               </button>
-              <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，单位毫米">
+              <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，含 CUT 切割层与 ANNOTATION 标注层">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h9l5 5v9H3zM12 3v5h5" /><path d="m6.5 15 3-4 2 2 2-3" /></svg>
                 <span>切割 DXF</span>
               </button>
@@ -560,7 +560,7 @@
           <span>排版尺寸 <b id="sheetSize">—</b></span>
           <span>6 块面板</span>
           <span>单位 mm</span>
-          <span class="sheet-note">名义尺寸 · kerf 由激光软件补偿 · 请确认实际幅面</span>
+          <span class="sheet-note">DXF 分层：CUT 切割 / ANNOTATION 标注 · kerf 由激光软件补偿</span>
         </div>
         <div class="sheet-preview" id="sheetPreview"></div>
         <div class="sheet-foot">
