@@ -179,37 +179,6 @@ input[type="number"] {
   letter-spacing: 0.06em;
 }
 
-.topbar-center {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  margin-left: auto;
-  color: var(--dim);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-}
-
-.topbar-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  white-space: nowrap;
-}
-
-.tag-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 999px;
-  background: var(--accent);
-  box-shadow: 0 0 8px rgba(var(--accent-rgb), 0.9);
-}
-
-.topbar-divider {
-  width: 1px;
-  height: 13px;
-  background: var(--line-strong);
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
@@ -3660,10 +3629,6 @@ html[data-mode="light"] .toast-icon {
     flex-basis: 58px;
   }
 
-  .topbar-center {
-    display: none;
-  }
-
   .brand-sub {
     display: none;
   }
@@ -3992,14 +3957,21 @@ html[data-mode="light"] .toast-icon {
     min-width: 0;
   }
 
-  .stat:nth-child(2) {
+  .stat:nth-child(2),
+  .stat:nth-child(4) {
     border-right: 0;
   }
 
   .stat:nth-child(3),
-  .stat:nth-child(4) {
+  .stat:nth-child(4),
+  .stat:nth-child(5) {
     border-top: 1px solid var(--line);
     padding-top: 7px;
+  }
+
+  .stat:nth-child(5) {
+    grid-column: 1 / -1;
+    border-right: 0;
   }
 
   .scene-notices {
