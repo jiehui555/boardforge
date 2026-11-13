@@ -3052,7 +3052,7 @@ body.settings-open {
   display: flex;
   flex-direction: column;
   width: min(560px, 100%);
-  max-height: min(86vh, 780px);
+  max-height: min(90vh, 860px);
   overflow: hidden;
   border: 1px solid var(--line-strong);
   border-radius: 16px;

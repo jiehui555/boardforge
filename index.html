@@ -538,7 +538,7 @@
           </button>
         </div>
 
-        <div class="settings-body">
+        <div class="settings-body" id="settingsBody">
           <p class="settings-intro" id="settingsIntro">以下都是本机界面偏好，不会改动外壳参数，也不写入导出的文件。</p>
 
           <section class="settings-group" aria-labelledby="settingsAppearanceTitle">
@@ -585,8 +585,15 @@
               </div>
             </div>
             <p class="settings-hint">与 3D 工具栏的投影按钮保持同步。</p>
+          </section>
 
-            <label class="switch-row settings-switch settings-switch-stacked">
+          <section class="settings-group" aria-labelledby="settingsPerformanceTitle">
+            <div class="settings-group-head">
+              <h3 id="settingsPerformanceTitle">性能</h3>
+              <span class="settings-badge">低配设备</span>
+            </div>
+
+            <label class="switch-row settings-switch settings-switch-shadows">
               <span class="switch-copy">
                 <strong>阴影效果</strong>
                 <small>关闭后跳过阴影贴图渲染，低配置设备帧率更稳</small>
@@ -594,6 +601,17 @@
               <input id="shadowsToggle" type="checkbox" checked />
               <span class="switch-track" aria-hidden="true"><span></span></span>
             </label>
+
+            <label class="switch-row settings-switch settings-switch-stacked settings-switch-hidpi">
+              <span class="switch-copy">
+                <strong>高清渲染</strong>
+                <small>关闭后按 1x 像素比渲染，高分屏上明显降负载</small>
+              </span>
+              <input id="hidpiToggle" type="checkbox" checked />
+              <span class="switch-track" aria-hidden="true"><span></span></span>
+            </label>
+
+            <p class="settings-hint">预览静止时不再持续重绘，交互或动画时才出帧。</p>
           </section>
 
           <section class="settings-group" aria-labelledby="settingsDraftTitle">

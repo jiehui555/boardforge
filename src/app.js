@@ -54,6 +54,7 @@ const LEGACY_STORAGE_KEY = 'boardforge.autosave.v1';
 const PROJECTION_STORAGE_KEY = 'boardforge.projection.v1';
 const AUTOSAVE_ENABLED_STORAGE_KEY = 'boardforge.autosave-enabled.v1';
 const SHADOWS_ENABLED_STORAGE_KEY = 'boardforge.shadows-enabled.v1';
+const HIDPI_ENABLED_STORAGE_KEY = 'boardforge.hidpi-enabled.v1';
 const PROJECTS_STORAGE_KEY = 'boardforge.projects.v1';
 const ACTIVE_PROJECT_STORAGE_KEY = 'boardforge.active-project.v1';
 const MAX_IMPORT_BYTES = 2 * 1024 * 1024;
@@ -130,6 +131,7 @@ const dom = {
 
   settingsButton: document.querySelector('#settingsButton'),
   settingsModal: document.querySelector('#settingsModal'),
+  settingsBody: document.querySelector('#settingsBody'),
   settingsCloseButton: document.querySelector('#settingsCloseButton'),
   settingsDoneButton: document.querySelector('#settingsDoneButton'),
   settingsModeGroup: document.querySelector('#settingsModeGroup'),
@@ -141,6 +143,7 @@ const dom = {
   resetSettingsButton: document.querySelector('#resetSettingsButton'),
   autosaveToggle: document.querySelector('#autosaveToggle'),
   shadowsToggle: document.querySelector('#shadowsToggle'),
+  hidpiToggle: document.querySelector('#hidpiToggle'),
   themePresets: document.querySelector('#themePresets'),
   themeColorInput: document.querySelector('#themeColorInput'),
   themeColorHex: document.querySelector('#themeColorHex'),
@@ -230,6 +233,7 @@ let exploded = false;
 let currentProjection = readProjectionMode();
 let autosaveEnabled = true;
 let shadowsEnabled = true;
+let hidpiEnabled = true;
 let activeOpeningSide = 'front';
 let selectedOpeningIndex = null;
 let openingDrag = null;
@@ -252,6 +256,7 @@ bootstrap();
 function bootstrap() {
   autosaveEnabled = readAutosaveEnabled();
   shadowsEnabled = readShadowsEnabled();
+  hidpiEnabled = readHidpiEnabled();
   initializeTheme();
   const restored = autosaveEnabled ? readStoredState() : null;
   if (restored) {
@@ -267,6 +272,7 @@ function bootstrap() {
   syncProjectionUi();
   syncAutosaveUi();
   syncShadowsUi();
+  syncHidpiUi();
   setActiveView(activeView);
   initializeAccordions();
   bindEvents();
@@ -281,6 +287,7 @@ function bootstrap() {
       preview.setMode(currentMode);
       preview.setProjection(currentProjection);
       preview.setShadows(shadowsEnabled);
+      preview.setPixelRatioCap(hidpiEnabled ? 2 : 1);
       preview.setBoardColor(state.board.color);
     } catch (error) {
       showFatal(error?.message || '无法创建 WebGL 上下文。');
@@ -361,7 +368,8 @@ function openSettings() {
   dom.settingsButton.setAttribute('aria-expanded', 'true');
   document.body.classList.add('settings-open');
   syncSettingsUi();
-  dom.settingsDoneButton.focus();
+  dom.settingsBody.scrollTop = 0;
+  dom.settingsDoneButton.focus({ preventScroll: true });
 }
 
 function closeSettings({ restoreFocus = true } = {}) {
@@ -379,6 +387,7 @@ function syncSettingsUi() {
   syncProjectionUi();
   syncAutosaveUi();
   syncShadowsUi();
+  syncHidpiUi();
 }
 
 function resetSettings() {
@@ -387,7 +396,11 @@ function resetSettings() {
   setProjection('perspective');
   setAutosaveEnabled(true);
   setShadowsEnabled(true);
-  toast('设置已恢复默认', '深色 · 默认主题色 · 透视投影 · 自动保存与阴影开启');
+  setHidpiEnabled(true);
+  toast(
+    '设置已恢复默认',
+    '深色 · 默认主题色 · 透视投影 · 自动保存、阴影与高清渲染开启',
+  );
 }
 
 /* ── Sidebar accordions ─────────────────────────────────────────────────── */
@@ -2590,6 +2603,36 @@ function setShadowsEnabled(enabled, { persist = true } = {}) {
   if (preview && !previewFailed) preview.setShadows(shadowsEnabled);
 }
 
+function readHidpiEnabled() {
+  try {
+    return localStorage.getItem(HIDPI_ENABLED_STORAGE_KEY) !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function saveHidpiEnabled(enabled) {
+  try {
+    if (enabled) localStorage.removeItem(HIDPI_ENABLED_STORAGE_KEY);
+    else localStorage.setItem(HIDPI_ENABLED_STORAGE_KEY, 'off');
+  } catch {
+    // The in-memory setting still works without storage.
+  }
+}
+
+function syncHidpiUi() {
+  dom.hidpiToggle.checked = hidpiEnabled;
+}
+
+function setHidpiEnabled(enabled, { persist = true } = {}) {
+  hidpiEnabled = Boolean(enabled);
+  if (persist) saveHidpiEnabled(hidpiEnabled);
+  syncHidpiUi();
+  if (preview && !previewFailed) {
+    preview.setPixelRatioCap(hidpiEnabled ? 2 : 1);
+  }
+}
+
 function queueSave() {
   if (!autosaveEnabled) {
     syncAutosaveUi();
@@ -2820,6 +2863,9 @@ function bindEvents() {
   });
   dom.shadowsToggle.addEventListener('change', () => {
     setShadowsEnabled(dom.shadowsToggle.checked);
+  });
+  dom.hidpiToggle.addEventListener('change', () => {
+    setHidpiEnabled(dom.hidpiToggle.checked);
   });
   dom.resetSettingsButton.addEventListener('click', resetSettings);
   dom.themePresets.addEventListener('click', (event) => {
@@ -3066,6 +3112,10 @@ function exposeDebugApi() {
       isShadowsEnabled: () => shadowsEnabled,
       isPreviewShadowsEnabled: () =>
         preview ? preview.renderer.shadowMap.enabled : null,
+      isHidpiEnabled: () => hidpiEnabled,
+      getPixelRatio: () => (preview ? preview.renderer.getPixelRatio() : null),
+      getPixelRatioCap: () => (preview ? preview.pixelRatioCap : null),
+      getRenderCount: () => (preview ? preview.renderCount : null),
       setView: (view) => requestView(view),
       setExploded: (value) => {
         exploded = Boolean(value);

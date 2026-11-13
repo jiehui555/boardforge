@@ -115,6 +115,12 @@ export class BoardPreview {
     this.disposed = false;
     this.pendingFit = true;
     this.shadowsEnabled = true;
+    this.pixelRatioCap = 2;
+    this.frame = null;
+    this.needsRender = true;
+    this.renderCount = 0;
+    this.lastCameraSignature = '';
+    this.animate = this.animate.bind(this);
 
     this.renderer = new THREE.WebGLRenderer({
       canvas,
@@ -122,7 +128,9 @@ export class BoardPreview {
       alpha: true,
       powerPreference: 'high-performance',
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, this.pixelRatioCap),
+    );
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.0;
@@ -207,8 +215,7 @@ export class BoardPreview {
       this.onContextLost('WebGL 上下文已丢失，请刷新页面恢复 3D 预览。');
     });
 
-    this.animate = this.animate.bind(this);
-    this.frame = requestAnimationFrame(this.animate);
+    this.requestRender();
   }
 
   setupControls(camera, target) {
@@ -272,6 +279,14 @@ export class BoardPreview {
     this.canvas.addEventListener('pointermove', this.handleOrbitPointerMove);
     this.canvas.addEventListener('pointerup', this.handleOrbitPointerEnd);
     this.canvas.addEventListener('pointercancel', this.handleOrbitPointerEnd);
+
+    // Frames are only drawn on demand; any pointer or wheel input must wake the
+    // loop so OrbitControls damping keeps receiving frames while it settles.
+    this.handleWake = () => this.requestRender();
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
+      this.canvas.addEventListener(type, this.handleWake, { passive: true });
+    }
+    this.canvas.addEventListener('wheel', this.handleWake, { passive: true });
   }
 
   syncOrbitAxis() {
@@ -377,6 +392,7 @@ export class BoardPreview {
     this.panelEdgeMaterial.opacity = light ? 0.72 : 0.58;
     if (this.grid) this.grid.material.opacity = light ? 0.2 : 0.32;
     if (this.shadowPlane) this.shadowPlane.material.opacity = light ? 0.18 : 0.28;
+    this.requestRender();
   }
 
   /**
@@ -397,6 +413,7 @@ export class BoardPreview {
         : [object.material];
       for (const material of materials) material.needsUpdate = true;
     });
+    this.requestRender();
   }
 
   getVisibleHeight() {
@@ -459,11 +476,13 @@ export class BoardPreview {
       this.setupControls(this.camera, target);
     }
 
+    this.requestRender();
     return this.projection;
   }
 
   setBoardColor(color) {
     this.boardMaterial.color.set(color);
+    this.requestRender();
   }
 
   setModel(model, options = {}) {
@@ -571,6 +590,7 @@ export class BoardPreview {
       this.fitView(this.view, false);
       this.pendingFit = false;
     }
+    this.requestRender();
   }
 
   clearAssembly() {
@@ -597,6 +617,7 @@ export class BoardPreview {
   setExploded(exploded) {
     this.exploded = Boolean(exploded);
     this.explodeTarget = this.exploded ? 1 : 0;
+    this.requestRender();
   }
 
   applyExplosion() {
@@ -666,6 +687,7 @@ export class BoardPreview {
       this.camera.lookAt(target);
       this.syncOrbitAxis();
       this.controls.update();
+      this.requestRender();
       return;
     }
 
@@ -707,6 +729,7 @@ export class BoardPreview {
       duration: 300 + (angle / Math.PI) * 320,
     };
     if (orthographic) this.orthographicCamera.zoom = 1;
+    this.requestRender();
   }
 
   resize() {
@@ -715,7 +738,9 @@ export class BoardPreview {
     const rect = parent.getBoundingClientRect();
     const width = Math.max(1, Math.round(rect.width));
     const height = Math.max(1, Math.round(rect.height));
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, this.pixelRatioCap),
+    );
     this.renderer.setSize(width, height, false);
     this.perspectiveCamera.aspect = width / height;
     this.perspectiveCamera.updateProjectionMatrix();
@@ -724,11 +749,61 @@ export class BoardPreview {
       this.fitView(this.view, false);
       this.pendingFit = false;
     }
+    this.requestRender();
+  }
+
+  /**
+   * Cap the backing-store pixel ratio. Low-end devices can drop from 2x to 1x,
+   * which roughly halves the fragment count without touching the CSS size.
+   */
+  setPixelRatioCap(cap) {
+    const next = cap >= 2 ? 2 : 1;
+    if (this.pixelRatioCap === next) return;
+    this.pixelRatioCap = next;
+    const size = this.renderer.getSize(new THREE.Vector2());
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio || 1, this.pixelRatioCap),
+    );
+    this.renderer.setSize(size.x, size.y, false);
+    this.requestRender();
+  }
+
+  scheduleFrame() {
+    if (this.frame !== null || this.disposed) return;
+    this.frame = requestAnimationFrame(this.animate);
+  }
+
+  /**
+   * Request a repaint. Rendering is on demand: the loop stops once the camera
+   * settles and no transition or explosion animation is running.
+   */
+  requestRender() {
+    this.needsRender = true;
+    this.scheduleFrame();
+  }
+
+  cameraSignature() {
+    const { position, quaternion, zoom } = this.camera;
+    const target = this.controls.target;
+    return [
+      position.x.toFixed(3),
+      position.y.toFixed(3),
+      position.z.toFixed(3),
+      quaternion.x.toFixed(4),
+      quaternion.y.toFixed(4),
+      quaternion.z.toFixed(4),
+      quaternion.w.toFixed(4),
+      target.x.toFixed(3),
+      target.y.toFixed(3),
+      target.z.toFixed(3),
+      zoom.toFixed(3),
+    ].join(',');
   }
 
   animate(now) {
+    this.frame = null;
     if (this.disposed) return;
-    this.frame = requestAnimationFrame(this.animate);
+    this.needsRender = false;
 
     if (this.transition) {
       const elapsed = Math.min(1, (now - this.transition.start) / this.transition.duration);
@@ -773,16 +848,30 @@ export class BoardPreview {
 
     this.controls.update();
     this.renderer.render(this.scene, this.camera);
+    this.renderCount += 1;
+
+    const signature = this.cameraSignature();
+    const animating =
+      Boolean(this.transition) ||
+      Math.abs(this.explodeProgress - this.explodeTarget) > 0.001;
+    const cameraMoved = signature !== this.lastCameraSignature;
+    this.lastCameraSignature = signature;
+    if (this.needsRender || animating || cameraMoved) this.scheduleFrame();
   }
 
   dispose() {
     this.disposed = true;
     cancelAnimationFrame(this.frame);
+    this.frame = null;
     this.resizeObserver.disconnect();
     this.canvas.removeEventListener('pointerdown', this.handleOrbitPointerDown);
     this.canvas.removeEventListener('pointermove', this.handleOrbitPointerMove);
     this.canvas.removeEventListener('pointerup', this.handleOrbitPointerEnd);
     this.canvas.removeEventListener('pointercancel', this.handleOrbitPointerEnd);
+    for (const type of ['pointerdown', 'pointermove', 'pointerup', 'pointercancel']) {
+      this.canvas.removeEventListener(type, this.handleWake);
+    }
+    this.canvas.removeEventListener('wheel', this.handleWake);
     this.controls.dispose();
     this.clearAssembly();
     this.panelMaterial.dispose();

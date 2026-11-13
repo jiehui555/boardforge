@@ -402,7 +402,7 @@ try {
   );
 
   // Shadows can be disabled for low-end GPUs.
-  await page.locator('.settings-switch-stacked').click();
+  await page.locator('.settings-switch-shadows').click();
   const shadowsOff = await page.evaluate(() => ({
     enabled: window.boardForge.isShadowsEnabled(),
     renderer: window.boardForge.isPreviewShadowsEnabled(),
@@ -411,11 +411,46 @@ try {
   ok(shadowsOff.enabled === false, 'shadows can be disabled');
   ok(shadowsOff.renderer === false, 'renderer stops drawing shadow maps');
   ok(shadowsOff.stored === 'off', 'disabled shadows are persisted');
-  await page.locator('.settings-switch-stacked').click();
+  await page.locator('.settings-switch-shadows').click();
   ok(
     (await page.evaluate(() => window.boardForge.isPreviewShadowsEnabled())) === true,
     'shadows can be enabled again',
   );
+
+  // HiDPI rendering can be capped to 1x for weaker devices.
+  await page.locator('.settings-switch-hidpi').click();
+  const hidpiOff = await page.evaluate(() => ({
+    enabled: window.boardForge.isHidpiEnabled(),
+    cap: window.boardForge.getPixelRatioCap(),
+    ratio: window.boardForge.getPixelRatio(),
+    stored: localStorage.getItem('boardforge.hidpi-enabled.v1'),
+  }));
+  ok(hidpiOff.enabled === false, 'hidpi rendering can be disabled');
+  ok(hidpiOff.cap === 1, 'disabled hidpi caps the pixel ratio at 1x');
+  ok(hidpiOff.ratio === 1, 'renderer uses a 1x backing store');
+  ok(hidpiOff.stored === 'off', 'disabled hidpi is persisted');
+  await page.locator('.settings-switch-hidpi').click();
+  ok(
+    (await page.evaluate(() => window.boardForge.getPixelRatioCap())) === 2,
+    'hidpi rendering can be enabled again',
+  );
+
+  // Rendering is on demand: idle previews stop producing frames.
+  await page.locator('#settingsDoneButton').click();
+  await page.waitForTimeout(300);
+  await page.waitForTimeout(1200);
+  const idleFrames = await page.evaluate(() => window.boardForge.getRenderCount());
+  await page.waitForTimeout(700);
+  const stillIdleFrames = await page.evaluate(() => window.boardForge.getRenderCount());
+  ok(stillIdleFrames === idleFrames, 'preview stops rendering while idle');
+  await dragPreview(24, 12);
+  await page.waitForTimeout(90);
+  const awakeFrames = await page.evaluate(() => window.boardForge.getRenderCount());
+  ok(awakeFrames > stillIdleFrames, 'interaction wakes the render loop');
+  await page.waitForTimeout(900);
+
+  await page.locator('#settingsButton').click();
+  await page.waitForTimeout(300);
 
   // Capture the settings dialog in the light theme used by the docs.
   await page.evaluate(() => document.querySelectorAll('.toast').forEach((toast) => toast.remove()));
@@ -430,12 +465,14 @@ try {
     projection: window.boardForge.getProjection(),
     autosave: window.boardForge.isAutosaveEnabled(),
     shadows: window.boardForge.isShadowsEnabled(),
+    hidpi: window.boardForge.isHidpiEnabled(),
   }));
   ok(reset.theme === '#8ee89d', 'reset restores the default theme colour');
   ok(reset.mode === 'dark', 'reset restores dark mode');
   ok(reset.projection === 'perspective', 'reset restores perspective projection');
   ok(reset.autosave === true, 'reset restores autosave');
   ok(reset.shadows === true, 'reset restores shadows');
+  ok(reset.hidpi === true, 'reset restores hidpi rendering');
 
   // Put the shell back into the light theme used by the rest of the checks.
   await page.locator('#settingsModeGroup [data-mode="light"]').click();
