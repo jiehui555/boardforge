@@ -402,6 +402,8 @@ export class BoardPreview {
       direction: direction.toArray(),
       up: this.camera.up.toArray(),
       target: this.controls.target.toArray(),
+      position: this.camera.position.toArray(),
+      distance: this.camera.position.distanceTo(this.controls.target),
     };
   }
 
@@ -441,17 +443,42 @@ export class BoardPreview {
       return;
     }
 
+    const fromTarget = this.controls.target.clone();
+    const fromPosition = this.camera.position.clone();
+    const fromDirection = fromPosition.clone().sub(fromTarget);
+    const fromDistance = Math.max(0.001, fromDirection.length());
+    if (fromDirection.lengthSq() < 1e-8) {
+      fromDirection.copy(direction);
+    } else {
+      fromDirection.normalize();
+    }
+
+    const dot = THREE.MathUtils.clamp(fromDirection.dot(direction), -1, 1);
+    const angle = Math.acos(dot);
+    const axis = new THREE.Vector3().crossVectors(fromDirection, direction);
+    if (axis.lengthSq() < 1e-8) {
+      // Opposite views (front/back, left/right) need an explicit orbit axis;
+      // otherwise they would pass through the model centre.
+      axis.copy(this.camera.up).normalize();
+      if (axis.lengthSq() < 1e-8) axis.set(0, 0, 1);
+    } else {
+      axis.normalize();
+    }
+
     this.transition = {
-      fromPosition: this.camera.position.clone(),
-      toPosition: position,
-      fromTarget: this.controls.target.clone(),
+      fromDirection,
+      axis,
+      angle,
+      fromTarget,
       toTarget: target,
+      fromDistance,
+      toDistance: position.distanceTo(target),
       fromUp: this.camera.up.clone(),
       toUp: up,
       fromHeight: orthographic ? this.orthographicViewHeight : undefined,
       toHeight: orthographic ? visibleHeight : undefined,
       start: performance.now(),
-      duration: 400,
+      duration: 300 + (angle / Math.PI) * 320,
     };
     if (orthographic) this.orthographicCamera.zoom = 1;
   }
@@ -480,16 +507,20 @@ export class BoardPreview {
     if (this.transition) {
       const elapsed = Math.min(1, (now - this.transition.start) / this.transition.duration);
       const eased = smoothstep(elapsed);
-      this.camera.position.lerpVectors(
-        this.transition.fromPosition,
-        this.transition.toPosition,
-        eased,
-      );
+      const distance =
+        this.transition.fromDistance +
+        (this.transition.toDistance - this.transition.fromDistance) * eased;
+
       this.controls.target.lerpVectors(
         this.transition.fromTarget,
         this.transition.toTarget,
         eased,
       );
+      this.camera.position
+        .copy(this.transition.fromDirection)
+        .applyAxisAngle(this.transition.axis, this.transition.angle * eased)
+        .multiplyScalar(distance)
+        .add(this.controls.target);
       this.camera.up
         .lerpVectors(this.transition.fromUp, this.transition.toUp, eased)
         .normalize();

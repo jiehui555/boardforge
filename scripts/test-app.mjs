@@ -196,7 +196,7 @@ try {
   ok((await page.locator('[data-view]').count()) === 6, 'all six view presets are available');
   for (const [side, expected] of Object.entries(sideViews)) {
     await page.locator(`[data-view="${side}"]`).click();
-    await page.waitForTimeout(460);
+    await page.waitForTimeout(760);
     const camera = await page.evaluate(() => window.boardForge.getCamera());
     ok(camera.view === side, `${side} view becomes active`);
     ok(
@@ -204,8 +204,24 @@ try {
       `${side} view is perpendicular to its panel`,
     );
   }
+
+  // An opposite side view travels around the model instead of passing through it.
+  await page.locator('[data-view="front"]').click();
+  await page.waitForTimeout(760);
+  await page.locator('[data-view="back"]').click();
+  await page.waitForTimeout(250);
+  const arcMidpoint = await page.evaluate(() => window.boardForge.getCamera());
+  ok(
+    Math.abs(arcMidpoint.direction[0]) > 0.5,
+    'front-to-back transition orbits through a side view',
+  );
+  ok(arcMidpoint.distance > 20, 'view transition keeps the camera away from the model centre');
+  await page.waitForTimeout(500);
+  const backView = await page.evaluate(() => window.boardForge.getCamera());
+  ok(backView.direction[1] > 0.98, 'front-to-back transition ends on the back view');
+
   await page.locator('[data-view="iso"]').click();
-  await page.waitForTimeout(460);
+  await page.waitForTimeout(760);
 
   // Theme and mode controls remain available in the enclosure-first UI.
   await page.locator('#themeButton').click();
