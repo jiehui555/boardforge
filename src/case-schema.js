@@ -20,6 +20,7 @@ import {
   normalizeState,
   round,
 } from './schema.js';
+import { t } from './i18n.js';
 
 export const CASE_VERSION = 2;
 export const CASE_FORMAT = 'boardforge-case';
@@ -167,7 +168,7 @@ function cleanEnclosure(raw, warnings) {
   };
 
   if (!isPlainObject(raw) && raw !== undefined) {
-    warnings.push('enclosure 字段格式无效，已使用默认外壳参数。');
+    warnings.push(t('enclosure 字段格式无效，已使用默认外壳参数。'));
   }
 
   const comparisons = [
@@ -188,7 +189,7 @@ function cleanEnclosure(raw, warnings) {
         Number(rawValue) !== cleanValue,
     )
   ) {
-    warnings.push('部分外壳参数超出允许范围，已自动限制。');
+    warnings.push(t('部分外壳参数超出允许范围，已自动限制。'));
   }
 
   if (
@@ -197,7 +198,7 @@ function cleanEnclosure(raw, warnings) {
     Number(source.screw_clearance) !== values.screw_clearance
   ) {
     warnings.push(
-      `固定柱过孔已归一到标准 ${screwSpec.label} 规格（${screwSpec.clearance} mm）。`,
+      t('固定柱过孔已归一到标准 {spec} 规格（{clearance} mm）。', { spec: screwSpec.label, clearance: screwSpec.clearance }),
     );
   }
 
@@ -206,7 +207,7 @@ function cleanEnclosure(raw, warnings) {
 
 function cleanOpening(raw, index, warnings) {
   if (!isPlainObject(raw)) {
-    warnings.push(`第 ${index + 1} 个开孔格式无效，已忽略。`);
+    warnings.push(t('第 {n} 个开孔格式无效，已忽略。', { n: index + 1 }));
     return null;
   }
   const side = OPENING_SIDES.includes(raw.side) ? raw.side : 'front';
@@ -260,7 +261,7 @@ export function createDefaultCaseState() {
   return {
     version: CASE_VERSION,
     format: CASE_FORMAT,
-    name: '未命名开发板外壳',
+    name: t('未命名开发板外壳'),
     units: 'mm',
     board: { ...board.board },
     holes: board.holes.map((hole) => ({ ...hole })),
@@ -280,7 +281,7 @@ export function createCaseFromPreset(preset) {
   return {
     version: CASE_VERSION,
     format: CASE_FORMAT,
-    name: `${preset.name} 外壳`,
+    name: t('{name} 外壳', { name: preset.name }),
     units: 'mm',
     board: { ...board.board },
     holes: board.holes.map((hole) => ({ ...hole })),
@@ -295,7 +296,7 @@ export function createCaseFromPreset(preset) {
 
 export function normalizeCaseState(raw, options = {}) {
   if (!isPlainObject(raw)) {
-    throw new Error('参数文件的根节点必须是一个 JSON 对象。');
+    throw new Error(t('参数文件的根节点必须是一个 JSON 对象。'));
   }
 
   const warnings = [];
@@ -308,7 +309,7 @@ export function normalizeCaseState(raw, options = {}) {
   const boardResult = normalizeState(
     {
       version: FORMAT_VERSION,
-      name: typeof raw.name === 'string' ? raw.name : '未命名开发板',
+      name: typeof raw.name === 'string' ? raw.name : t('未命名开发板'),
       units: 'mm',
       board: rawBoard,
       holes: rawHoles,
@@ -326,11 +327,11 @@ export function normalizeCaseState(raw, options = {}) {
       if (opening) openings.push(opening);
     }
     if (openings.length > MAX_OPENINGS) {
-      warnings.push(`开孔数量超过 ${MAX_OPENINGS} 个，仅保留前 ${MAX_OPENINGS} 个。`);
+      warnings.push(t('开孔数量超过 {max} 个，仅保留前 {max} 个。', { max: MAX_OPENINGS }));
       openings.length = MAX_OPENINGS;
     }
   } else if (raw.openings !== undefined) {
-    warnings.push('openings 字段格式无效，已忽略。');
+    warnings.push(t('openings 字段格式无效，已忽略。'));
   }
 
   const sourceVersion = Number.isFinite(Number(raw.version))
@@ -339,7 +340,7 @@ export function normalizeCaseState(raw, options = {}) {
       ? CASE_VERSION
       : FORMAT_VERSION;
   if (sourceVersion > CASE_VERSION) {
-    warnings.push(`文件版本 ${sourceVersion} 高于当前支持的版本 ${CASE_VERSION}，已按兼容模式读取。`);
+    warnings.push(t('文件版本 {version} 高于当前支持的版本 {supported}，已按兼容模式读取。', { version: sourceVersion, supported: CASE_VERSION }));
   }
 
   return {
@@ -349,7 +350,7 @@ export function normalizeCaseState(raw, options = {}) {
       name:
         typeof raw.name === 'string' && raw.name.trim()
           ? raw.name.trim().slice(0, 80)
-          : '未命名开发板外壳',
+          : t('未命名开发板外壳'),
       units: 'mm',
       board: boardResult.state.board,
       holes: boardResult.state.holes,
@@ -370,7 +371,7 @@ export function toCaseDocument(state, options = {}) {
   return {
     version: CASE_VERSION,
     format: CASE_FORMAT,
-    name: state.name?.trim() || '未命名开发板外壳',
+    name: state.name?.trim() || t('未命名开发板外壳'),
     units: 'mm',
     board: {
       length: round(Number(state.board.length)),
@@ -517,7 +518,9 @@ export function caseFileStem(state, dimensions = deriveCaseDimensions(state)) {
     !rawName ||
     rawName === '未命名开发板外壳' ||
     rawName === '未命名开发板' ||
-    rawName.toLowerCase() === 'untitled case';
+    rawName.toLowerCase() === 'untitled case' ||
+    rawName.toLowerCase() === 'untitled board case' ||
+    rawName.toLowerCase() === 'untitled board';
   const name = isUnnamed
     ? 'board-case'
     : String(rawName)

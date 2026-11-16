@@ -7,6 +7,7 @@ import {
   openingToPanelLocal,
   validBoardMountHoles,
 } from './case-schema.js';
+import { t } from './i18n.js';
 
 const EPSILON = 1e-7;
 const CIRCLE_SEGMENTS = 40;
@@ -269,17 +270,17 @@ function panelHoleAtPoint(x, y, diameter, type) {
 }
 
 function buildSidePanels(state, dims, warnings) {
-  const t = dims.panelThickness;
+  const panelT = dims.panelThickness;
   const fit = state.enclosure.fit;
   const topBottomTabOptions = {
-    margin: Math.max(9, t + 6),
+    margin: Math.max(9, panelT + 6),
     target: 30,
     minWidth: 6,
     maxWidth: 12,
     maxCount: 5,
   };
   const verticalTabOptions = {
-    margin: Math.max(5, t + 3),
+    margin: Math.max(5, panelT + 3),
     target: 16,
     minWidth: 4.5,
     maxWidth: 8,
@@ -295,12 +296,12 @@ function buildSidePanels(state, dims, warnings) {
   const verticalTabs = tabIntervals(height, verticalTabOptions);
 
   const verticalNotches = expandIntervals(verticalTabs, fit);
-  const notchDepth = t + fit;
+  const notchDepth = panelT + fit;
 
   const panels = [
     {
       id: 'front',
-      label: SIDE_LABELS.front,
+      label: t(SIDE_LABELS.front),
       role: 'side',
       width: frontBackWidth,
       height,
@@ -308,10 +309,10 @@ function buildSidePanels(state, dims, warnings) {
       bottomTabs: frontTabs,
       verticalTabs,
       outline: buildRectilinearOutline(frontBackWidth, height, {
-        bottom: asFeatures(frontTabs, t),
-        top: asFeatures(frontTabs, t),
-        left: asFeatures(verticalTabs, t),
-        right: asFeatures(verticalTabs, t),
+        bottom: asFeatures(frontTabs, panelT),
+        top: asFeatures(frontTabs, panelT),
+        left: asFeatures(verticalTabs, panelT),
+        right: asFeatures(verticalTabs, panelT),
       }),
       holes: [],
       explosion: [0, -1, 0],
@@ -321,14 +322,14 @@ function buildSidePanels(state, dims, warnings) {
         [0, -1, 0],
         [
           -frontBackWidth / 2,
-          -dims.outerDepth / 2 + dims.topBottomOverhang + t,
-          t,
+          -dims.outerDepth / 2 + dims.topBottomOverhang + panelT,
+          panelT,
         ],
       ),
     },
     {
       id: 'back',
-      label: SIDE_LABELS.back,
+      label: t(SIDE_LABELS.back),
       role: 'side',
       width: frontBackWidth,
       height,
@@ -336,10 +337,10 @@ function buildSidePanels(state, dims, warnings) {
       bottomTabs: frontTabs,
       verticalTabs,
       outline: buildRectilinearOutline(frontBackWidth, height, {
-        bottom: asFeatures(frontTabs, t),
-        top: asFeatures(frontTabs, t),
-        left: asFeatures(verticalTabs, t),
-        right: asFeatures(verticalTabs, t),
+        bottom: asFeatures(frontTabs, panelT),
+        top: asFeatures(frontTabs, panelT),
+        left: asFeatures(verticalTabs, panelT),
+        right: asFeatures(verticalTabs, panelT),
       }),
       holes: [],
       explosion: [0, 1, 0],
@@ -349,14 +350,14 @@ function buildSidePanels(state, dims, warnings) {
         [0, 1, 0],
         [
           frontBackWidth / 2,
-          dims.outerDepth / 2 - dims.topBottomOverhang - t,
-          t,
+          dims.outerDepth / 2 - dims.topBottomOverhang - panelT,
+          panelT,
         ],
       ),
     },
     {
       id: 'left',
-      label: SIDE_LABELS.left,
+      label: t(SIDE_LABELS.left),
       role: 'side',
       width: sideWidth,
       height,
@@ -364,8 +365,8 @@ function buildSidePanels(state, dims, warnings) {
       bottomTabs: sideTabs,
       verticalNotches: true,
       outline: buildRectilinearOutline(sideWidth, height, {
-        bottom: asFeatures(sideTabs, t),
-        top: asFeatures(sideTabs, t),
+        bottom: asFeatures(sideTabs, panelT),
+        top: asFeatures(sideTabs, panelT),
         left: asFeatures(verticalNotches, -notchDepth),
         right: asFeatures(verticalNotches, -notchDepth),
       }),
@@ -378,13 +379,13 @@ function buildSidePanels(state, dims, warnings) {
         [
           -dims.outerWidth / 2 + dims.topBottomOverhang,
           -dims.outerDepth / 2 + dims.topBottomOverhang,
-          t,
+          panelT,
         ],
       ),
     },
     {
       id: 'right',
-      label: SIDE_LABELS.right,
+      label: t(SIDE_LABELS.right),
       role: 'side',
       width: sideWidth,
       height,
@@ -392,8 +393,8 @@ function buildSidePanels(state, dims, warnings) {
       bottomTabs: sideTabs,
       verticalNotches: true,
       outline: buildRectilinearOutline(sideWidth, height, {
-        bottom: asFeatures(sideTabs, t),
-        top: asFeatures(sideTabs, t),
+        bottom: asFeatures(sideTabs, panelT),
+        top: asFeatures(sideTabs, panelT),
         left: asFeatures(verticalNotches, -notchDepth),
         right: asFeatures(verticalNotches, -notchDepth),
       }),
@@ -406,14 +407,14 @@ function buildSidePanels(state, dims, warnings) {
         [
           dims.outerWidth / 2 - dims.topBottomOverhang,
           dims.outerDepth / 2 - dims.topBottomOverhang,
-          t,
+          panelT,
         ],
       ),
     },
   ];
 
   if (frontTabs.length === 0 || sideTabs.length === 0) {
-    warnings.push('外壳尺寸较小，顶部/底部榫舌数量不足，建议增加外壳尺寸。');
+    warnings.push(t('外壳尺寸较小，顶部/底部榫舌数量不足，建议增加外壳尺寸。'));
   }
 
   return {
@@ -431,7 +432,7 @@ function addOpenings(panels, state, dims, warnings) {
     const opening = state.openings[index];
     const panel = byId.get(opening.side);
     if (!panel) {
-      warnings.push(`第 ${index + 1} 个开孔所在侧板无效，已跳过。`);
+      warnings.push(t('第 {n} 个开孔所在侧板无效，已跳过。', { n: index + 1 }));
       continue;
     }
 
@@ -453,7 +454,7 @@ function addOpenings(panels, state, dims, warnings) {
       cy + halfHeight > panel.height - marginY
     ) {
       warnings.push(
-        `第 ${index + 1} 个开孔超出${SIDE_LABELS[opening.side]}可加工区域，已跳过。`,
+        t('第 {n} 个开孔超出{panel}可加工区域，已跳过。', { n: index + 1, panel: t(SIDE_LABELS[opening.side]) }),
       );
       continue;
     }
@@ -483,7 +484,7 @@ function addOpenings(panels, state, dims, warnings) {
     );
     if (conflict) {
       warnings.push(
-        `第 ${index + 1} 个开孔与第 ${conflict.sourceIndex + 1} 个开孔重叠，已跳过。`,
+        t('第 {n} 个开孔与第 {other} 个开孔重叠，已跳过。', { n: index + 1, other: conflict.sourceIndex + 1 }),
       );
       continue;
     }
@@ -499,7 +500,7 @@ function buildVentHoles(state, dims, panelWidth, panelDepth, blocked, warnings) 
   let slotWidth = Math.min(vent.slot_width, panelDepth / 4);
   let slotLength = Math.min(vent.slot_length, panelWidth - 24);
   if (slotLength < 4) {
-    warnings.push('通风槽长度过大，无法放入顶板/底板。');
+    warnings.push(t('通风槽长度过大，无法放入顶板/底板。'));
     return [];
   }
 
@@ -523,7 +524,7 @@ function buildVentHoles(state, dims, panelWidth, panelDepth, blocked, warnings) 
   }
 
   if (count < vent.count) {
-    warnings.push(`通风槽数量已从 ${vent.count} 减少为 ${count}，以适配面板尺寸。`);
+    warnings.push(t('通风槽数量已从 {from} 减少为 {to}，以适配面板尺寸。', { from: vent.count, to: count }));
   }
 
   const holes = [];
@@ -533,7 +534,7 @@ function buildVentHoles(state, dims, panelWidth, panelDepth, blocked, warnings) 
     const candidate = roundedRectPoints(panelWidth / 2, cy, slotLength, slotWidth, slotWidth / 2);
     const candidateBounds = boundsOf(candidate);
     if (blocked.some((rect) => boxOverlap(candidateBounds, rect, 1.4))) {
-      warnings.push(`第 ${index + 1} 条通风槽与固定孔冲突，已跳过。`);
+      warnings.push(t('第 {n} 条通风槽与固定孔冲突，已跳过。', { n: index + 1 }));
       continue;
     }
     holes.push(
@@ -551,14 +552,14 @@ function buildVentHoles(state, dims, panelWidth, panelDepth, blocked, warnings) 
 }
 
 function buildTopBottomPanels(state, dims, sideData, panelHoles) {
-  const t = dims.panelThickness;
+  const panelT = dims.panelThickness;
   const fit = state.enclosure.fit;
   const overhang = dims.topBottomOverhang;
   const outerW = dims.outerWidth;
   const outerD = dims.outerDepth;
   const warnings = [];
 
-  const slotWidth = t + fit * 2;
+  const slotWidth = panelT + fit * 2;
   const slotHoles = [];
   const addSlot = (cx, cy, width, height) => {
     slotHoles.push(
@@ -576,20 +577,20 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
   for (const tab of sideData.frontTabs) {
     const mid = (tab.start + tab.end) / 2;
     const width = tab.end - tab.start + fit * 2;
-    addSlot(overhang + t + mid, overhang + t / 2, width, slotWidth);
-    addSlot(outerW - overhang - t - mid, outerD - overhang - t / 2, width, slotWidth);
+    addSlot(overhang + panelT + mid, overhang + panelT / 2, width, slotWidth);
+    addSlot(outerW - overhang - panelT - mid, outerD - overhang - panelT / 2, width, slotWidth);
   }
   for (const tab of sideData.sideTabs) {
     const mid = (tab.start + tab.end) / 2;
     const height = tab.end - tab.start + fit * 2;
-    addSlot(overhang + t / 2, overhang + mid, slotWidth, height);
-    addSlot(outerW - overhang - t / 2, outerD - overhang - mid, slotWidth, height);
+    addSlot(overhang + panelT / 2, overhang + mid, slotWidth, height);
+    addSlot(outerW - overhang - panelT / 2, outerD - overhang - mid, slotWidth, height);
   }
 
   const panelMakers = [
     {
       id: 'bottom',
-      label: '底板',
+      label: t('底板'),
       role: 'bottom',
       z: 0,
       extraHoles: panelHoles.bottom,
@@ -597,9 +598,9 @@ function buildTopBottomPanels(state, dims, sideData, panelHoles) {
     },
     {
       id: 'top',
-      label: '顶板',
+      label: t('顶板'),
       role: 'top',
-      z: dims.outerHeight - t,
+      z: dims.outerHeight - panelT,
       extraHoles: panelHoles.top,
       explosion: [0, 0, 1],
     },
@@ -642,8 +643,7 @@ function buildBoardMounts(state, warnings) {
     );
     if (collision) {
       warnings.push(
-        `第 ${hole.index + 1} 个板孔与第 ${collision.boardHoleIndex + 1} 个板孔 ` +
-          '距离过近，固定柱已跳过。',
+        t('第 {n} 个板孔与第 {other} 个板孔 距离过近，固定柱已跳过。', { n: hole.index + 1, other: collision.boardHoleIndex + 1 }),
       );
       continue;
     }
@@ -764,9 +764,9 @@ export function buildCaseModel(state, options = {}) {
     : boardSource.geometry;
   warnings.push(...boardSource.warnings);
   if (mounts.length === 0) {
-    warnings.push('开发板没有有效安装孔，无法生成一体固定柱和顶/底螺丝。');
+    warnings.push(t('开发板没有有效安装孔，无法生成一体固定柱和顶/底螺丝。'));
   } else if (mounts.length < 3) {
-    warnings.push('有效固定柱少于 3 组，外壳固定可能不稳定。');
+    warnings.push(t('有效固定柱少于 3 组，外壳固定可能不稳定。'));
   }
 
   const hardware = buildHardware(dims, mounts);

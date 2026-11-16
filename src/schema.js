@@ -8,6 +8,8 @@
  *   - All dimensions are millimetres.
  */
 
+import { t } from './i18n.js';
+
 export const FORMAT_VERSION = 1;
 export const MAX_HOLES = 32;
 
@@ -47,7 +49,7 @@ export function createDefaultState() {
   const now = localISOString();
   return {
     version: FORMAT_VERSION,
-    name: '未命名开发板',
+    name: t('未命名开发板'),
     units: 'mm',
     board: { ...DEFAULT_BOARD },
     holes: defaultHolesForBoard(),
@@ -116,14 +118,14 @@ function normalizeTimestamp(value, fallback) {
  */
 export function normalizeState(raw, options = {}) {
   if (!isPlainObject(raw)) {
-    throw new Error('参数文件的根节点必须是一个 JSON 对象。');
+    throw new Error(t('参数文件的根节点必须是一个 JSON 对象。'));
   }
 
   const warnings = [];
   const now = localISOString();
   const rawBoard = isPlainObject(raw.board) ? raw.board : {};
   const missingBoard = !isPlainObject(raw.board);
-  if (missingBoard) warnings.push('文件缺少 board 字段，已使用默认板子尺寸。');
+  if (missingBoard) warnings.push(t('文件缺少 board 字段，已使用默认板子尺寸。'));
 
   const length = clamp(
     toFiniteNumber(rawBoard.length, DEFAULT_BOARD.length),
@@ -148,25 +150,25 @@ export function normalizeState(raw, options = {}) {
   );
 
   if (Number.isFinite(Number(rawBoard.length)) && Number(rawBoard.length) !== length) {
-    warnings.push(`板子长度已限制在 ${LIMITS.length.min}–${LIMITS.length.max} mm。`);
+    warnings.push(t('板子长度已限制在 {min}–{max} mm。', { min: LIMITS.length.min, max: LIMITS.length.max }));
   }
   if (Number.isFinite(Number(rawBoard.width)) && Number(rawBoard.width) !== width) {
-    warnings.push(`板子宽度已限制在 ${LIMITS.width.min}–${LIMITS.width.max} mm。`);
+    warnings.push(t('板子宽度已限制在 {min}–{max} mm。', { min: LIMITS.width.min, max: LIMITS.width.max }));
   }
   if (Number.isFinite(Number(rawBoard.thickness)) && Number(rawBoard.thickness) !== thickness) {
-    warnings.push(`板子厚度已限制在 ${LIMITS.thickness.min}–${LIMITS.thickness.max} mm。`);
+    warnings.push(t('板子厚度已限制在 {min}–{max} mm。', { min: LIMITS.thickness.min, max: LIMITS.thickness.max }));
   }
   if (Number.isFinite(Number(rawBoard.corner_radius)) && Number(rawBoard.corner_radius) !== cornerRadius) {
-    warnings.push(`圆角半径已限制在 0–${formatNumber(cornerMax)} mm。`);
+    warnings.push(t('圆角半径已限制在 0–{max} mm。', { max: formatNumber(cornerMax) }));
   }
 
   const version = Number.isFinite(Number(raw.version)) ? Number(raw.version) : FORMAT_VERSION;
   if (version > FORMAT_VERSION) {
-    warnings.push(`文件版本 ${version} 高于当前支持的版本 ${FORMAT_VERSION}，已按兼容模式读取。`);
+    warnings.push(t('文件版本 {version} 高于当前支持的版本 {supported}，已按兼容模式读取。', { version, supported: FORMAT_VERSION }));
   }
 
   if (typeof raw.units === 'string' && raw.units.toLowerCase() !== 'mm') {
-    warnings.push(`文件单位“${raw.units}”不受支持，已按毫米读取。`);
+    warnings.push(t('文件单位“{units}”不受支持，已按毫米读取。', { units: raw.units }));
   }
 
   let holes;
@@ -175,7 +177,7 @@ export function normalizeState(raw, options = {}) {
     for (let index = 0; index < raw.holes.length; index += 1) {
       const entry = raw.holes[index];
       if (!isPlainObject(entry)) {
-        warnings.push(`第 ${index + 1} 个安装孔格式无效，已忽略。`);
+        warnings.push(t('第 {n} 个安装孔格式无效，已忽略。', { n: index + 1 }));
         continue;
       }
       holes.push({
@@ -189,12 +191,12 @@ export function normalizeState(raw, options = {}) {
       });
     }
     if (holes.length > MAX_HOLES) {
-      warnings.push(`安装孔数量超过 ${MAX_HOLES} 个，仅保留前 ${MAX_HOLES} 个。`);
+      warnings.push(t('安装孔数量超过 {max} 个，仅保留前 {max} 个。', { max: MAX_HOLES }));
       holes = holes.slice(0, MAX_HOLES);
     }
   } else {
     holes = options.emptyHoles ? [] : defaultHolesForBoard(length, width);
-    if (!options.emptyHoles) warnings.push('文件缺少 holes 字段，已生成四角安装孔。');
+    if (!options.emptyHoles) warnings.push(t('文件缺少 holes 字段，已生成四角安装孔。'));
   }
 
   const rawMeta = isPlainObject(raw.meta) ? raw.meta : {};
@@ -206,7 +208,7 @@ export function normalizeState(raw, options = {}) {
       version: FORMAT_VERSION,
       name: typeof raw.name === 'string' && raw.name.trim()
         ? raw.name.trim().slice(0, 80)
-        : '未命名开发板',
+        : t('未命名开发板'),
       units: 'mm',
       board: {
         length: round(length),
@@ -228,7 +230,7 @@ export function toBoardDocument(state, options = {}) {
   const created = normalizeTimestamp(state.meta?.created, now);
   return {
     version: FORMAT_VERSION,
-    name: state.name?.trim() || '未命名开发板',
+    name: state.name?.trim() || t('未命名开发板'),
     units: 'mm',
     board: {
       length: round(Number(state.board.length)),
@@ -256,28 +258,28 @@ export function toBoardDocument(state, options = {}) {
 export function validateState(state) {
   const errors = [];
   const board = state?.board || {};
-  checkRange(errors, board.length, LIMITS.length, '板子长度', 'length');
-  checkRange(errors, board.width, LIMITS.width, '板子宽度', 'width');
-  checkRange(errors, board.thickness, LIMITS.thickness, '板子厚度', 'thickness');
+  checkRange(errors, board.length, LIMITS.length, t('板子长度'), 'length');
+  checkRange(errors, board.width, LIMITS.width, t('板子宽度'), 'width');
+  checkRange(errors, board.thickness, LIMITS.thickness, t('板子厚度'), 'thickness');
 
   const cornerMax = maxCornerRadius(Number(board.length) || 0, Number(board.width) || 0);
   checkRange(
     errors,
     board.corner_radius,
     { min: 0, max: cornerMax, step: LIMITS.cornerRadius.step },
-    '圆角半径',
+    t('圆角半径'),
     'corner_radius',
   );
 
   for (let index = 0; index < (state?.holes?.length || 0); index += 1) {
     const hole = state.holes[index];
-    checkRange(errors, hole.x, LIMITS.holeX, `第 ${index + 1} 个孔的 X 坐标`, `holes.${index}.x`);
-    checkRange(errors, hole.y, LIMITS.holeY, `第 ${index + 1} 个孔的 Y 坐标`, `holes.${index}.y`);
+    checkRange(errors, hole.x, LIMITS.holeX, t('第 {n} 个孔的 X 坐标', { n: index + 1 }), `holes.${index}.x`);
+    checkRange(errors, hole.y, LIMITS.holeY, t('第 {n} 个孔的 Y 坐标', { n: index + 1 }), `holes.${index}.y`);
     checkRange(
       errors,
       hole.diameter,
       LIMITS.holeDiameter,
-      `第 ${index + 1} 个孔的直径`,
+      t('第 {n} 个孔的直径', { n: index + 1 }),
       `holes.${index}.diameter`,
     );
   }
@@ -288,13 +290,13 @@ export function validateState(state) {
 function checkRange(errors, value, limit, label, field) {
   const number = Number(value);
   if (!Number.isFinite(number)) {
-    errors.push({ field, message: `${label}必须是有效数字。` });
+    errors.push({ field, message: t('{label}必须是有效数字。', { label }) });
     return;
   }
   if (number < limit.min) {
-    errors.push({ field, message: `${label}不能小于 ${formatNumber(limit.min)} mm。` });
+    errors.push({ field, message: t('{label}不能小于 {min} mm。', { label, min: formatNumber(limit.min) }) });
   } else if (number > limit.max) {
-    errors.push({ field, message: `${label}不能大于 ${formatNumber(limit.max)} mm。` });
+    errors.push({ field, message: t('{label}不能大于 {max} mm。', { label, max: formatNumber(limit.max) }) });
   }
 }
 
@@ -333,7 +335,7 @@ export function analyseHoles(state) {
     const diameter = Number(hole.diameter);
     const r = diameter / 2;
     if (![x, y, diameter].every(Number.isFinite) || diameter <= 0) {
-      invalid.push({ index, message: `第 ${index + 1} 个孔的尺寸无效，已跳过。` });
+      invalid.push({ index, message: t('第 {n} 个孔的尺寸无效，已跳过。', { n: index + 1 }) });
       continue;
     }
 
@@ -358,7 +360,7 @@ export function analyseHoles(state) {
     if (maxDistance > -0.05) {
       outside.push({
         index,
-        message: `第 ${index + 1} 个孔超出了板边（含 0.05 mm 安全余量），已跳过。`,
+        message: t('第 {n} 个孔超出了板边（含 0.05 mm 安全余量），已跳过。', { n: index + 1 }),
       });
     }
   }
@@ -374,7 +376,7 @@ export function analyseHoles(state) {
         overlaps.push({
           a: first.index,
           b: second.index,
-          message: `第 ${first.index + 1} 与第 ${second.index + 1} 个孔重叠，打印时会合并为一个开孔。`,
+          message: t('第 {a} 与第 {b} 个孔重叠，打印时会合并为一个开孔。', { a: first.index + 1, b: second.index + 1 }),
         });
       }
     }
@@ -401,7 +403,10 @@ export function sanitizeFilenamePart(value, fallback = 'board') {
 
 export function boardFileStem(state) {
   const rawName = typeof state.name === 'string' ? state.name.trim() : '';
-  const isUnnamed = !rawName || rawName === '未命名开发板' || rawName.toLowerCase() === 'untitled board';
+  const isUnnamed =
+    !rawName ||
+    rawName === '未命名开发板' ||
+    rawName.toLowerCase() === 'untitled board';
   const name = isUnnamed ? 'board' : sanitizeFilenamePart(rawName, 'board');
   return `${name}-${formatNumber(state.board.length)}x${formatNumber(state.board.width)}`;
 }

@@ -47,6 +47,13 @@ import {
   saveThemeColor,
   saveThemeMode,
 } from './theme.js';
+import {
+  getLanguage,
+  initializeLanguage,
+  onLanguageChange,
+  setLanguage,
+  t,
+} from './i18n.js';
 
 const STORAGE_KEY = 'boardforge.case-autosave.v2';
 const LEGACY_CASE_STORAGE_KEY = 'boardforge.case-autosave.v1';
@@ -66,6 +73,25 @@ const SIDE_VIEW_LABELS = Object.freeze({
   back: '后视',
   left: '左视',
   right: '右视',
+});
+const SIDE_SHORT_LABELS = Object.freeze({
+  front: '前',
+  back: '后',
+  left: '左',
+  right: '右',
+});
+const UNTITLED_PROJECT_NAMES = Object.freeze([
+  '未命名开发板外壳',
+  '未命名开发板',
+  'Untitled Board Case',
+  'Untitled Board',
+]);
+const AUTOSAVE_LABELS = Object.freeze({
+  off: '自动保存已关闭',
+  idle: '草稿自动保存',
+  saving: '正在保存草稿…',
+  saved: '草稿已保存',
+  error: '无法访问本地存储',
 });
 
 const OPENING_PRESETS = Object.freeze([
@@ -136,6 +162,8 @@ const dom = {
   settingsDoneButton: document.querySelector('#settingsDoneButton'),
   settingsModeGroup: document.querySelector('#settingsModeGroup'),
   settingsProjectionGroup: document.querySelector('#settingsProjectionGroup'),
+  settingsLanguageGroup: document.querySelector('#settingsLanguageGroup'),
+  settingsLanguageButtons: Array.from(document.querySelectorAll('[data-lang][role="radio"]')),
   settingsModeButtons: Array.from(document.querySelectorAll('[data-mode][role="radio"]')),
   settingsProjectionButtons: Array.from(
     document.querySelectorAll('[data-projection][role="radio"]'),
@@ -254,6 +282,8 @@ const pendingInvalid = new Set();
 bootstrap();
 
 function bootstrap() {
+  initializeLanguage();
+  onLanguageChange(() => retranslateUi());
   autosaveEnabled = readAutosaveEnabled();
   shadowsEnabled = readShadowsEnabled();
   hidpiEnabled = readHidpiEnabled();
@@ -264,12 +294,14 @@ function bootstrap() {
   }
   activeProjectId = autosaveEnabled ? readActiveProjectId() : null;
   selectedPresetId = detectPresetId(state);
+  localizeAutoProjectName();
 
   renderPresets();
   renderHardwareSpecOptions();
   renderOpeningPresetOptions();
   syncFormFromState();
   syncProjectionUi();
+  syncLanguageUi();
   syncAutosaveUi();
   syncShadowsUi();
   syncHidpiUi();
@@ -290,9 +322,9 @@ function bootstrap() {
       preview.setPixelRatioCap(hidpiEnabled ? 2 : 1);
       preview.setBoardColor(state.board.color);
     } catch (error) {
-      showFatal(error?.message || '无法创建 WebGL 上下文。');
-      setModelStatus('error', 'WebGL 不可用');
-      setExportStatus('3D 预览不可用', 'error');
+      showFatal(error?.message || t('无法创建 WebGL 上下文。'));
+      setModelStatus('error', t('WebGL 不可用'));
+      setExportStatus(t('3D 预览不可用'), 'error');
       return;
     }
 
@@ -314,8 +346,8 @@ function renderThemePresets() {
   dom.themePresets.innerHTML = THEME_PRESETS.map(
     (preset) => `
       <button class="theme-preset" type="button" data-theme-preset="${preset.id}"
-        data-theme-color="${preset.color}" aria-label="${preset.label}主题"
-        title="${preset.label}">
+        data-theme-color="${preset.color}" aria-label="${escapeHtml(t('{label}主题', { label: t(preset.label) }))}"
+        title="${escapeHtml(t(preset.label))}">
         <span class="theme-preset-dot" style="background:${preset.color}"></span>
       </button>`,
   ).join('');
@@ -385,12 +417,22 @@ function closeSettings({ restoreFocus = true } = {}) {
 function syncSettingsUi() {
   syncModeUi();
   syncProjectionUi();
+  syncLanguageUi();
   syncAutosaveUi();
   syncShadowsUi();
   syncHidpiUi();
 }
 
+function syncLanguageUi() {
+  dom.settingsLanguageButtons.forEach((button) => {
+    const active = button.dataset.lang === getLanguage();
+    button.setAttribute('aria-checked', String(active));
+    button.classList.toggle('active', active);
+  });
+}
+
 function resetSettings() {
+  setLanguage('zh');
   resetTheme();
   setThemeMode(DEFAULT_THEME_MODE);
   setProjection('perspective');
@@ -398,9 +440,68 @@ function resetSettings() {
   setShadowsEnabled(true);
   setHidpiEnabled(true);
   toast(
-    '设置已恢复默认',
-    '深色 · 默认主题色 · 透视投影 · 自动保存、阴影与高清渲染开启',
+    t('设置已恢复默认'),
+    t('深色 · 默认主题色 · 透视投影 · 自动保存、阴影与高清渲染开启'),
   );
+}
+
+/* ── Language switch ────────────────────────────────────────────────────── */
+
+function displayProjectName(name) {
+  const trimmed = String(name || '').trim();
+  if (!trimmed || UNTITLED_PROJECT_NAMES.includes(trimmed)) {
+    return t('未命名开发板外壳');
+  }
+  const presetName = trimmed.match(/^(.*) (外壳|Case)$/);
+  if (presetName && PRESETS.some((preset) => preset.name === presetName[1])) {
+    return t('{name} 外壳', { name: presetName[1] });
+  }
+  return trimmed;
+}
+
+function localizeAutoProjectName() {
+  state.name = displayProjectName(state.name);
+}
+
+function retranslateUi() {
+  syncLanguageUi();
+  localizeAutoProjectName();
+  dom.caseName.value = state.name;
+  queueSave();
+  renderPresets();
+  refreshPresetActive();
+  renderThemePresets();
+  applyThemeColor(currentThemeColor, { persist: false });
+  renderHardwareSpecOptions();
+  dom.screwSpecSelect.value = screwSpecForClearance(state.enclosure.screw_clearance).id;
+  renderOpeningPresetOptions();
+  renderHoles();
+  renderOpenings();
+  updateDerivedUi();
+  updateNameUi();
+  refreshAutosaveLabel();
+  setActiveView(activeView);
+  syncProjectionUi();
+  syncExplodeUi();
+  safeProjectSignatures = null;
+  if (boardCache) {
+    boardCache.model.geometry.dispose();
+    boardCache = null;
+  }
+  if (!dom.launcherModal.hidden) renderProjectLauncher();
+  if (!dom.projectModal.hidden && pendingProjectAction) {
+    openProjectDialog(pendingProjectAction);
+  }
+  if (previewFailed) {
+    setModelStatus('error', t('3D 预览不可用'));
+    setExportStatus(t('3D 预览不可用'), 'error');
+    return;
+  }
+  if (pendingInvalid.size > 0) {
+    updateBlockedUi();
+    return;
+  }
+  scheduleBuild({ immediate: true });
 }
 
 /* ── Sidebar accordions ─────────────────────────────────────────────────── */
@@ -477,10 +578,10 @@ function syncFormFromState() {
   renderOpenings();
   clearAllFieldErrors();
   refreshPresetActive();
-  setExportStatus('准备就绪');
+  setExportStatus(t('准备就绪'));
 }
 function updateNameUi() {
-  const name = state.name.trim() || '未命名开发板外壳';
+  const name = state.name.trim() || t('未命名开发板外壳');
   dom.previewName.textContent = name;
   updateFilenameUi();
 }
@@ -505,12 +606,24 @@ function updateDerivedUi() {
   dom.enclosureSummary.textContent =
     `${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ` +
     `${formatNumber(dims.outerHeight)} mm`;
-  dom.enclosureNote.textContent =
-    `内腔 ${formatNumber(dims.innerWidth)} × ${formatNumber(dims.innerDepth)} × ` +
-    `${formatNumber(dims.innerHeight)} mm · 6 块 ${formatNumber(dims.panelThickness)} mm 亚克力`;
-  dom.boardSummary.textContent =
-    `${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} × ` +
-    `${formatNumber(state.board.thickness)} mm · ${state.holes.length} 孔`;
+  dom.enclosureNote.textContent = t(
+    '内腔 {w} × {d} × {h} mm · 6 块 {t} mm 亚克力',
+    {
+      w: formatNumber(dims.innerWidth),
+      d: formatNumber(dims.innerDepth),
+      h: formatNumber(dims.innerHeight),
+      t: formatNumber(dims.panelThickness),
+    },
+  );
+  dom.boardSummary.textContent = t(
+    '{l} × {w} × {t} mm · {n} 孔',
+    {
+      l: formatNumber(state.board.length),
+      w: formatNumber(state.board.width),
+      t: formatNumber(state.board.thickness),
+      n: state.holes.length,
+    },
+  );
   dom.holeCount.textContent = `${state.holes.length} / ${MAX_HOLES}`;
   updateHardwareNote();
   updateBom();
@@ -532,13 +645,13 @@ function updateHardwareNote() {
 
   if (state.holes.length === 0) {
     dom.hardwareNote.textContent =
-      '开发板没有安装孔，无法生成一体固定柱和顶/底面板螺丝。';
+      t('开发板没有安装孔，无法生成一体固定柱和顶/底面板螺丝。');
     dom.hardwareNote.classList.add('is-warning');
     return;
   }
   if (usable.length === 0) {
     dom.hardwareNote.textContent =
-      '没有可用的开发板安装孔，无法生成固定柱；请修正板孔位置。';
+      t('没有可用的开发板安装孔，无法生成固定柱；请修正板孔位置。');
     dom.hardwareNote.classList.add('is-warning');
     return;
   }
@@ -547,18 +660,22 @@ function updateHardwareNote() {
   if (clearance - smallest > 0.4) {
     const smaller = fittingScrewSpec(smallest);
     dom.hardwareNote.textContent =
-      `板孔最小 ${formatNumber(smallest)} mm，小于 ${spec.label} 的 ` +
-      `${formatNumber(clearance)} mm 标准过孔；` +
+      t('板孔最小 {min} mm，小于 {spec} 的 {clearance} mm 标准过孔；', {
+        min: formatNumber(smallest),
+        spec: spec.label,
+        clearance: formatNumber(clearance),
+      }) +
       (smaller
-        ? `请扩孔，或改用 ${smaller.label}（${formatNumber(smaller.clearance)} mm 过孔）。`
-        : '请扩孔后再使用标准五金。');
+        ? t('请扩孔，或改用 {spec}（{clearance} mm 过孔）。', { spec: smaller.label, clearance: formatNumber(smaller.clearance) })
+        : t('请扩孔后再使用标准五金。'));
     dom.hardwareNote.classList.add('is-warning');
     return;
   }
 
-  dom.hardwareNote.textContent =
-    `${spec.label} 标准过孔 ${formatNumber(clearance)} mm；` +
-    `${usable.length} 组固定柱穿过开发板孔位，上下锁紧顶板与底板。`;
+  dom.hardwareNote.textContent = t(
+    '{spec} 标准过孔 {clearance} mm；{n} 组固定柱穿过开发板孔位，上下锁紧顶板与底板。',
+    { spec: spec.label, clearance: formatNumber(clearance), n: usable.length },
+  );
   dom.hardwareNote.classList.remove('is-warning');
 }
 
@@ -566,33 +683,33 @@ function updateBom(actualMountCount = null) {
   const dims = deriveCaseDimensions(state);
   const usable = analyseHoles(state).printable;
   const count = actualMountCount ?? usable.length;
-  const t = dims.panelThickness;
+  const panelT = dims.panelThickness;
   const clearance = Number(state.enclosure.screw_clearance);
   const spec = screwSpecForClearance(clearance);
   const screwLabel = spec.label;
   const lowerLength = dims.bottomGap;
   const upperLength = dims.topGap;
-  const panelScrewLength = Math.max(6, Math.ceil(t + 5));
+  const panelScrewLength = Math.max(6, Math.ceil(panelT + 5));
   const smallest = count > 0
     ? Math.min(...usable.map((hole) => hole.diameter))
     : 0;
   const rows = [
-    [`${formatNumber(t)} mm 亚克力板`, '6 块'],
-    [`${screwLabel} 下六角固定柱（双内螺纹）`, `${count} × ${formatNumber(lowerLength)} mm`],
-    [`${screwLabel} 上六角固定柱（内外螺纹）`, `${count} × ${formatNumber(upperLength)} mm`],
-    [`${screwLabel} 顶/底面板螺丝`, `${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`],
-    [`${screwLabel} 标准过孔`, `${formatNumber(clearance)} mm`],
-    [`${screwLabel} 平垫圈`, `${count * 2} 个（建议）`],
+    [t('{t} mm 亚克力板', { t: formatNumber(panelT) }), t('6 块')],
+    [t('{spec} 下六角固定柱（双内螺纹）', { spec: screwLabel }), `${count} × ${formatNumber(lowerLength)} mm`],
+    [t('{spec} 上六角固定柱（内外螺纹）', { spec: screwLabel }), `${count} × ${formatNumber(upperLength)} mm`],
+    [t('{spec} 顶/底面板螺丝', { spec: screwLabel }), `${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`],
+    [t('{spec} 标准过孔', { spec: screwLabel }), `${formatNumber(clearance)} mm`],
+    [t('{spec} 平垫圈', { spec: screwLabel }), t('{n} 个（建议）', { n: count * 2 })],
   ];
 
   dom.hardwareSummary.textContent =
     count > 0
-      ? `${count} 组 ${screwLabel} 六角固定柱 · ${count * 2} 颗 ${screwLabel} 螺丝`
-      : '暂无可用固定柱';
+      ? t('{count} 组 {spec} 六角固定柱 · {screws} 颗 {spec} 螺丝', { count, spec: screwLabel, screws: count * 2 })
+      : t('暂无可用固定柱');
   const vent = state.enclosure.vent;
   dom.mechanicalSummary.textContent =
-    `${count} 组六角固定柱 · ` +
-    (vent.enabled ? `${formatNumber(vent.count)} 条通风槽` : '通风关闭');
+    t('{count} 组六角固定柱', { count }) + ' · ' +
+    (vent.enabled ? t('{n} 条通风槽', { n: formatNumber(vent.count) }) : t('通风关闭'));
   dom.bomList.innerHTML = rows
     .map(
       ([label, value]) =>
@@ -603,33 +720,38 @@ function updateBom(actualMountCount = null) {
   const incompatible = count > 0 && clearance - smallest > 0.4;
   if (count === 0) {
     dom.bomNote.textContent =
-      '缺少有效板孔，无法生成一体固定柱。也可以在板子参考中增加安装孔。';
+      t('缺少有效板孔，无法生成一体固定柱。也可以在板子参考中增加安装孔。');
     dom.bomNote.classList.add('is-warning');
   } else if (incompatible) {
     const smaller = fittingScrewSpec(smallest);
     dom.bomNote.textContent =
-      `开发板最小板孔为 ${formatNumber(smallest)} mm，${spec.label} 标准过孔为 ` +
-      `${formatNumber(clearance)} mm。` +
+      t('开发板最小板孔为 {min} mm，{spec} 标准过孔为 {clearance} mm。', {
+        min: formatNumber(smallest),
+        spec: spec.label,
+        clearance: formatNumber(clearance),
+      }) +
       (smaller
-        ? `建议扩孔，或改用 ${smaller.label} 五金。`
-        : '建议扩孔后使用标准五金。');
+        ? t('建议扩孔，或改用 {spec} 五金。', { spec: smaller.label })
+        : t('建议扩孔后使用标准五金。'));
     dom.bomNote.classList.add('is-warning');
   } else {
-    dom.bomNote.textContent =
-      `下柱从底板拧入，上柱的螺纹穿过开发板孔与下柱对锁；顶/底各一颗 ${screwLabel} 面板螺丝。${screwLabel} 采用 ${formatNumber(clearance)} mm 标准过孔，螺丝长度按固定柱螺纹深度和面板厚度微调。`;
+    dom.bomNote.textContent = t(
+      '下柱从底板拧入，上柱的螺纹穿过开发板孔与下柱对锁；顶/底各一颗 {spec} 面板螺丝。{spec} 采用 {clearance} mm 标准过孔，螺丝长度按固定柱螺纹深度和面板厚度微调。',
+      { spec: screwLabel, clearance: formatNumber(clearance) },
+    );
     dom.bomNote.classList.remove('is-warning');
   }
 
   currentBomText = [
-    'BoardForge 亚克力外壳五金清单',
-    `外壳：${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ${formatNumber(dims.outerHeight)} mm`,
-    `亚克力板：6 块 × ${formatNumber(t)} mm`,
-    `五金规格：${screwLabel}，标准过孔 ${formatNumber(clearance)} mm`,
-    `${screwLabel} 下六角固定柱（双内螺纹）：${count} × ${formatNumber(lowerLength)} mm`,
-    `${screwLabel} 上六角固定柱（内外螺纹）：${count} × ${formatNumber(upperLength)} mm`,
-    `${screwLabel} 顶/底面板螺丝：${count * 2} × ${formatNumber(panelScrewLength)}–${formatNumber(panelScrewLength + 2)} mm`,
-    `${screwLabel} 平垫圈：${count * 2} 个（建议）`,
-    `开发板固定柱过孔：${formatNumber(clearance)} mm`,
+    t('BoardForge 亚克力外壳五金清单'),
+    t('外壳：{w} × {d} × {h} mm', { w: formatNumber(dims.outerWidth), d: formatNumber(dims.outerDepth), h: formatNumber(dims.outerHeight) }),
+    t('亚克力板：6 块 × {t} mm', { t: formatNumber(panelT) }),
+    t('五金规格：{spec}，标准过孔 {clearance} mm', { spec: screwLabel, clearance: formatNumber(clearance) }),
+    t('{spec} 下六角固定柱（双内螺纹）：{count} × {len} mm', { spec: screwLabel, count, len: formatNumber(lowerLength) }),
+    t('{spec} 上六角固定柱（内外螺纹）：{count} × {len} mm', { spec: screwLabel, count, len: formatNumber(upperLength) }),
+    t('{spec} 顶/底面板螺丝：{count} × {min}–{max} mm', { spec: screwLabel, count: count * 2, min: formatNumber(panelScrewLength), max: formatNumber(panelScrewLength + 2) }),
+    t('{spec} 平垫圈：{n} 个（建议）', { spec: screwLabel, n: count * 2 }),
+    t('开发板固定柱过孔：{clearance} mm', { clearance: formatNumber(clearance) }),
   ].join('\n');
 }
 
@@ -647,9 +769,9 @@ async function copyBomText() {
       document.execCommand('copy');
       area.remove();
     }
-    toast('五金清单已复制', '可直接粘贴到采购或装配记录。');
+    toast(t('五金清单已复制'), t('可直接粘贴到采购或装配记录。'));
   } catch {
-    toast('复制失败', '浏览器未授予剪贴板权限。', 'error');
+    toast(t('复制失败'), t('浏览器未授予剪贴板权限。'), 'error');
   }
 }
 
@@ -851,8 +973,8 @@ function renderHoles() {
   if (state.holes.length === 0) {
     dom.holeList.innerHTML = `
       <div class="hole-empty">
-        <strong>还没有安装孔</strong>
-        <span>留空时不会生成板子固定柱</span>
+        <strong>${escapeHtml(t('还没有安装孔'))}</strong>
+        <span>${escapeHtml(t('留空时不会生成板子固定柱'))}</span>
       </div>`;
   } else {
     dom.holeList.innerHTML = state.holes
@@ -863,20 +985,20 @@ function renderHoles() {
           <label class="hole-field">
             <span>X</span>
             <input type="number" data-hole="x" step="0.1" inputmode="decimal"
-              value="${inputValue(hole.x)}" aria-label="第 ${index + 1} 个孔的 X 坐标，单位毫米" />
+              value="${inputValue(hole.x)}" aria-label="${escapeHtml(t('第 {n} 个孔的 X 坐标，单位毫米', { n: index + 1 }))}" />
           </label>
           <label class="hole-field">
             <span>Y</span>
             <input type="number" data-hole="y" step="0.1" inputmode="decimal"
-              value="${inputValue(hole.y)}" aria-label="第 ${index + 1} 个孔的 Y 坐标，单位毫米" />
+              value="${inputValue(hole.y)}" aria-label="${escapeHtml(t('第 {n} 个孔的 Y 坐标，单位毫米', { n: index + 1 }))}" />
           </label>
           <label class="hole-field">
             <span>⌀</span>
             <input type="number" data-hole="diameter" min="0.1" max="100" step="0.1" inputmode="decimal"
-              value="${inputValue(hole.diameter)}" aria-label="第 ${index + 1} 个孔的直径，单位毫米" />
+              value="${inputValue(hole.diameter)}" aria-label="${escapeHtml(t('第 {n} 个孔的直径，单位毫米', { n: index + 1 }))}" />
           </label>
           <button class="hole-delete" type="button" data-delete-hole="${index}"
-            aria-label="删除第 ${index + 1} 个安装孔" title="删除安装孔">
+            aria-label="${escapeHtml(t('删除第 {n} 个安装孔', { n: index + 1 }))}" title="${escapeHtml(t('删除安装孔'))}">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 3.5h4M6 6l.5 10h7L14 6M8.5 9v4.5M11.5 9v4.5"/></svg>
           </button>
         </div>`,
@@ -993,17 +1115,17 @@ function refreshHoleWarnings() {
     const index = Number(row.dataset.index);
     row.classList.toggle('has-warning', outside.has(index));
     row.title = outside.has(index)
-      ? '这个孔超出板边，无法用于固定柱。'
+      ? t('这个孔超出板边，无法用于固定柱。')
       : '';
   });
   const notes = [];
   if (outside.size > 0) {
-    notes.push(`${outside.size} 个板孔超出板边，未生成固定柱。`);
+    notes.push(t('{n} 个板孔超出板边，未生成固定柱。', { n: outside.size }));
   }
   if (state.holes.length === 0) {
-    notes.push('开发板没有安装孔，外壳不包含板子固定柱。');
+    notes.push(t('开发板没有安装孔，外壳不包含板子固定柱。'));
   }
-  dom.holeNote.textContent = notes.join(' ') || '板孔用于生成底部固定柱和底板过孔。';
+  dom.holeNote.textContent = notes.join(' ') || t('板孔用于生成底部固定柱和底板过孔。');
   dom.holeNote.classList.toggle('is-warning', notes.length > 0);
 }
 
@@ -1012,7 +1134,7 @@ function refreshHoleWarnings() {
 function renderHardwareSpecOptions() {
   dom.screwSpecSelect.innerHTML = SCREW_SPECS.map(
     (spec) =>
-      `<option value="${spec.id}">${spec.label} · 过孔 ${formatNumber(spec.clearance)} mm</option>`,
+      `<option value="${spec.id}">${spec.label} · ${escapeHtml(t('过孔'))} ${formatNumber(spec.clearance)} mm</option>`,
   ).join('');
 }
 
@@ -1022,7 +1144,7 @@ function renderOpeningPresetOptions() {
       preset.shape === 'circle'
         ? `⌀${formatNumber(preset.diameter)}`
         : `${formatNumber(preset.width)}×${formatNumber(preset.height)}`;
-    return `<option value="${preset.id}">${preset.label} · ${size}</option>`;
+    return `<option value="${preset.id}">${escapeHtml(t(preset.label))} · ${size}</option>`;
   }).join('');
 }
 
@@ -1042,8 +1164,8 @@ function renderOpeningSideTabs() {
     return `
       <button class="panel-side-tab${active ? ' active' : ''}${errorSides.has(side) ? ' has-error' : ''}" type="button"
         role="tab" aria-selected="${active}" data-opening-side="${side}"
-        title="${SIDE_LABELS[side]}${errorSides.has(side) ? ' · 有参数待修正' : ''}">
-        <span>${SIDE_LABELS[side].replace('面板', '')}</span>
+        title="${escapeHtml(t(SIDE_LABELS[side]) + (errorSides.has(side) ? ' · ' + t('有参数待修正') : ''))}">
+        <span>${escapeHtml(t(SIDE_SHORT_LABELS[side]))}</span>
         <span class="panel-side-tab-count">${counts[side]}</span>
       </button>`;
   }).join('');
@@ -1106,16 +1228,16 @@ function renderOpeningMap() {
         <g>
           ${shape}
           <text class="opening-map-tag" x="${center.x}" y="${center.y}" pointer-events="none">${index + 1}</text>
-          <title>第 ${index + 1} 个开孔 · U ${formatNumber(opening.u)} · V ${formatNumber(opening.v)}</title>
+          <title>${escapeHtml(t('第 {n} 个开孔 · U {u} · V {v}', { n: index + 1, u: formatNumber(opening.u), v: formatNumber(opening.v) }))}</title>
         </g>`;
     })
     .join('');
 
-  dom.panelMapTitle.textContent = SIDE_LABELS[side];
+  dom.panelMapTitle.textContent = t(SIDE_LABELS[side]);
   dom.panelMapDims.textContent = `${formatNumber(width)} × ${formatNumber(height)} mm`;
   dom.panelMap.innerHTML = `
     <svg viewBox="${-pad} ${-pad} ${width + pad * 2} ${height + pad * 2}"
-      role="img" aria-label="${SIDE_LABELS[side]}开孔平面图">
+      role="img" aria-label="${escapeHtml(t('{panel}开孔平面图', { panel: t(SIDE_LABELS[side]) }))}">
       <rect class="panel-outline" x="0" y="0" width="${width}" height="${height}" rx="1.5" />
       ${grid.join('')}
       <line class="panel-axis" x1="${width / 2}" y1="0" x2="${width / 2}" y2="${height}" />
@@ -1169,40 +1291,40 @@ function renderOpenings() {
   if (visible.length === 0) {
     dom.openingList.innerHTML = `
       <div class="opening-empty">
-        <strong>${SIDE_LABELS[activeOpeningSide]}还没有开孔</strong>
-        <span>可以添加常用接口预设或自定义开孔</span>
+        <strong>${escapeHtml(t('{panel}还没有开孔', { panel: t(SIDE_LABELS[activeOpeningSide]) }))}</strong>
+        <span>${escapeHtml(t('可以添加常用接口预设或自定义开孔'))}</span>
       </div>`;
   } else {
     dom.openingList.innerHTML = visible
       .map(({ opening, index }) => {
         const isCircle = opening.shape === 'circle';
         const sizeFields = isCircle
-          ? `<label class="hole-field"><span>⌀</span><input type="number" data-opening-field="diameter" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.diameter)}" aria-label="第 ${index + 1} 个开孔的直径" /></label>`
-          : `<label class="hole-field"><span>宽</span><input type="number" data-opening-field="width" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.width)}" aria-label="第 ${index + 1} 个开孔的宽度" /></label>
-             <label class="hole-field"><span>高</span><input type="number" data-opening-field="height" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.height)}" aria-label="第 ${index + 1} 个开孔的高度" /></label>`;
+          ? `<label class="hole-field"><span>⌀</span><input type="number" data-opening-field="diameter" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.diameter)}" aria-label="${escapeHtml(t('第 {n} 个开孔的直径', { n: index + 1 }))}" /></label>`
+          : `<label class="hole-field"><span>${escapeHtml(t('宽'))}</span><input type="number" data-opening-field="width" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.width)}" aria-label="${escapeHtml(t('第 {n} 个开孔的宽度', { n: index + 1 }))}" /></label>
+             <label class="hole-field"><span>${escapeHtml(t('高'))}</span><input type="number" data-opening-field="height" min="1" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.height)}" aria-label="${escapeHtml(t('第 {n} 个开孔的高度', { n: index + 1 }))}" /></label>`;
         return `
           <div class="opening-card${index === selectedOpeningIndex ? ' is-selected' : ''}" data-opening-index="${index}">
             <div class="opening-head">
               <span class="hole-index" aria-hidden="true">${String(index + 1).padStart(2, '0')}</span>
-              <select class="opening-select" data-opening-field="side" aria-label="第 ${index + 1} 个开孔所在面板">
+              <select class="opening-select" data-opening-field="side" aria-label="${escapeHtml(t('第 {n} 个开孔所在面板', { n: index + 1 }))}">
                 ${OPENING_SIDES.map(
                   (side) =>
-                    `<option value="${side}" ${opening.side === side ? 'selected' : ''}>${SIDE_LABELS[side]}</option>`,
+                    `<option value="${side}" ${opening.side === side ? 'selected' : ''}>${escapeHtml(t(SIDE_LABELS[side]))}</option>`,
                 ).join('')}
               </select>
-              <select class="opening-select" data-opening-field="shape" aria-label="第 ${index + 1} 个开孔形状">
+              <select class="opening-select" data-opening-field="shape" aria-label="${escapeHtml(t('第 {n} 个开孔形状', { n: index + 1 }))}">
                 ${OPENING_SHAPES.map(
                   (shape) =>
-                    `<option value="${shape}" ${opening.shape === shape ? 'selected' : ''}>${shape === 'circle' ? '圆形' : '矩形'}</option>`,
+                    `<option value="${shape}" ${opening.shape === shape ? 'selected' : ''}>${escapeHtml(shape === 'circle' ? t('圆形') : t('矩形'))}</option>`,
                 ).join('')}
               </select>
-              <button class="hole-delete" type="button" data-delete-opening="${index}" aria-label="删除第 ${index + 1} 个开孔" title="删除开孔">
+              <button class="hole-delete" type="button" data-delete-opening="${index}" aria-label="${escapeHtml(t('删除第 {n} 个开孔', { n: index + 1 }))}" title="${escapeHtml(t('删除开孔'))}">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 3.5h4M6 6l.5 10h7L14 6M8.5 9v4.5M11.5 9v4.5"/></svg>
               </button>
             </div>
             <div class="opening-fields">
-              <label class="hole-field"><span>U</span><input type="number" data-opening-field="u" min="-300" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.u)}" aria-label="第 ${index + 1} 个开孔的水平位置" /></label>
-              <label class="hole-field"><span>V</span><input type="number" data-opening-field="v" min="-200" max="200" step="0.5" inputmode="decimal" value="${inputValue(opening.v)}" aria-label="第 ${index + 1} 个开孔的垂直位置" /></label>
+              <label class="hole-field"><span>U</span><input type="number" data-opening-field="u" min="-300" max="300" step="0.5" inputmode="decimal" value="${inputValue(opening.u)}" aria-label="${escapeHtml(t('第 {n} 个开孔的水平位置', { n: index + 1 }))}" /></label>
+              <label class="hole-field"><span>V</span><input type="number" data-opening-field="v" min="-200" max="200" step="0.5" inputmode="decimal" value="${inputValue(opening.v)}" aria-label="${escapeHtml(t('第 {n} 个开孔的垂直位置', { n: index + 1 }))}" /></label>
               ${sizeFields}
             </div>
           </div>`;
@@ -1518,8 +1640,8 @@ function renderPresets() {
   dom.presetRow.innerHTML = PRESETS.map(
     (preset) => `
       <button type="button" class="preset-chip" data-preset-id="${preset.id}"
-        title="载入 ${preset.label} 尺寸">
-        <strong>${preset.label}</strong>
+        title="${escapeHtml(t('载入 {label} 尺寸', { label: t(preset.label) }))}">
+        <strong>${escapeHtml(t(preset.label))}</strong>
         <span>${preset.detail}</span>
       </button>`,
   ).join('');
@@ -1573,7 +1695,7 @@ function loadPreset(id) {
   scheduleBuild({ fit: true, immediate: true });
   queueSave();
   closeProjectLauncher({ restoreFocus: false });
-  toast(`已载入 ${preset.label}`, `${preset.detail} mm · 外壳参数已重置`);
+  toast(t('已载入 {label}', { label: t(preset.label) }), t('{detail} mm · 外壳参数已重置', { detail: preset.detail }));
 }
 
 function applyNewProject() {
@@ -1592,7 +1714,7 @@ function applyNewProject() {
   scheduleBuild({ fit: true, immediate: true });
   queueSave();
   closeProjectLauncher({ restoreFocus: false });
-  toast('已新建默认外壳', '六面板榫卯 · 3 mm 亚克力 · M3 五金');
+  toast(t('已新建默认外壳'), t('六面板榫卯 · 3 mm 亚克力 · M3 五金'));
 }
 
 function readActiveProjectId() {
@@ -1644,7 +1766,7 @@ function writeProjectLibrary(projects) {
     );
     return true;
   } catch {
-    toast('项目库保存失败', '浏览器本地存储空间不足或被禁用。', 'error');
+    toast(t('项目库保存失败'), t('浏览器本地存储空间不足或被禁用。'), 'error');
     return false;
   }
 }
@@ -1654,18 +1776,18 @@ function projectDocumentSummary(document) {
   const boardText = board
     ? `${formatNumber(board.length)} × ${formatNumber(board.width)} × ` +
       `${formatNumber(board.thickness)} mm`
-    : '未知板尺寸';
+    : t('未知板尺寸');
   const holes = Array.isArray(document?.holes) ? document.holes.length : 0;
   const openings = Array.isArray(document?.openings)
     ? document.openings.length
     : 0;
-  return `${boardText} · ${holes} 孔 · ${openings} 开孔`;
+  return t('{board} · {holes} 孔 · {openings} 开孔', { board: boardText, holes, openings });
 }
 
 function formatProjectDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(getLanguage() === 'zh' ? 'zh-CN' : 'en-US', {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -1684,29 +1806,34 @@ function renderProjectLauncher() {
   const linkedProject = projects.find(
     (project) => project.id === activeProjectId,
   );
-  let saveState = '草稿未保存';
+  let saveState = t('草稿未保存');
   if (linkedProject) {
     try {
       saveState =
         projectSignature(linkedProject.document) === projectSignature(state)
-          ? '已保存到项目库'
-          : '项目库有未保存修改';
+          ? t('已保存到项目库')
+          : t('项目库有未保存修改');
     } catch {
-      saveState = '已关联项目库';
+      saveState = t('已关联项目库');
     }
   }
-  dom.launcherCurrentName.textContent = state.name.trim() || '未命名开发板外壳';
+  dom.launcherCurrentName.textContent = state.name.trim() || t('未命名开发板外壳');
   dom.launcherCurrentMeta.textContent =
-    `${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} × ` +
-    `${formatNumber(state.board.thickness)} mm · ${state.holes.length} 孔 · ` +
-    `${state.openings.length} 开孔 · ${formatNumber(dims.outerWidth)} × ` +
-    `${formatNumber(dims.outerDepth)} × ${formatNumber(dims.outerHeight)} mm · ` +
-    saveState;
+    t('{l} × {w} × {t} mm · {holes} 孔 · {openings} 开孔 · {ow} × {od} × {oh} mm', {
+      l: formatNumber(state.board.length),
+      w: formatNumber(state.board.width),
+      t: formatNumber(state.board.thickness),
+      holes: state.holes.length,
+      openings: state.openings.length,
+      ow: formatNumber(dims.outerWidth),
+      od: formatNumber(dims.outerDepth),
+      oh: formatNumber(dims.outerHeight),
+    }) + ' · ' + saveState;
 
   dom.launcherPresets.innerHTML = PRESETS.map(
     (preset) => `
       <button class="launcher-preset" type="button" data-launcher-preset="${preset.id}">
-        <strong>${escapeHtml(preset.label)}</strong>
+        <strong>${escapeHtml(t(preset.label))}</strong>
         <span>${escapeHtml(preset.detail)} mm</span>
       </button>`,
   ).join('');
@@ -1715,7 +1842,7 @@ function renderProjectLauncher() {
   if (projects.length === 0) {
     dom.launcherProjects.innerHTML = `
       <div class="launcher-empty">
-        还没有保存的项目。点击「保存」把当前编辑加入项目库。
+        ${escapeHtml(t('还没有保存的项目。点击「保存」把当前编辑加入项目库。'))}
       </div>`;
     return;
   }
@@ -1729,16 +1856,16 @@ function renderProjectLauncher() {
       return `
         <div class="project-entry" data-project-id="${escapeHtml(project.id)}">
           <div class="project-entry-copy">
-            <strong>${escapeHtml(project.name)}</strong>
+            <strong>${escapeHtml(displayProjectName(project.name))}</strong>
             <span>${escapeHtml(projectDocumentSummary(project.document))} · ${escapeHtml(formatProjectDate(project.updated))}</span>
           </div>
           <div class="project-entry-actions">
             ${
               pendingDelete
-                ? `<button class="project-action is-danger" type="button" data-confirm-delete="${escapeHtml(project.id)}">确认删除</button>
-                   <button class="project-action" type="button" data-cancel-delete="${escapeHtml(project.id)}">取消</button>`
-                : `<button class="project-action" type="button" data-open-project="${escapeHtml(project.id)}">打开</button>
-                   <button class="project-action" type="button" data-delete-project="${escapeHtml(project.id)}">删除</button>`
+                ? `<button class="project-action is-danger" type="button" data-confirm-delete="${escapeHtml(project.id)}">${escapeHtml(t('确认删除'))}</button>
+                   <button class="project-action" type="button" data-cancel-delete="${escapeHtml(project.id)}">${escapeHtml(t('取消'))}</button>`
+                : `<button class="project-action" type="button" data-open-project="${escapeHtml(project.id)}">${escapeHtml(t('打开'))}</button>
+                   <button class="project-action" type="button" data-delete-project="${escapeHtml(project.id)}">${escapeHtml(t('删除'))}</button>`
             }
           </div>
         </div>`;
@@ -1768,7 +1895,7 @@ function closeProjectLauncher({ restoreFocus = true } = {}) {
 
 function saveCurrentProject() {
   if (pendingInvalid.size > 0) {
-    toast('请先修正参数', '高亮字段的数值无效或超出范围。', 'error');
+    toast(t('请先修正参数'), t('高亮字段的数值无效或超出范围。'), 'error');
     return false;
   }
   const projects = readProjectLibrary();
@@ -1778,7 +1905,7 @@ function saveCurrentProject() {
     writeActiveProjectId(null);
   }
   if (index < 0 && projects.length >= MAX_SAVED_PROJECTS) {
-    toast('项目数量已满', `最多保存 ${MAX_SAVED_PROJECTS} 个项目。`, 'warning');
+    toast(t('项目数量已满'), t('最多保存 {max} 个项目。', { max: MAX_SAVED_PROJECTS }), 'warning');
     return false;
   }
 
@@ -1801,14 +1928,14 @@ function saveCurrentProject() {
   writeActiveProjectId(id);
   saveNow();
   if (!dom.launcherModal.hidden) renderProjectLauncher();
-  toast('项目已保存', `「${documentData.name}」已加入项目库。`, 'success');
+  toast(t('项目已保存'), t('「{name}」已加入项目库。', { name: documentData.name }), 'success');
   return true;
 }
 
 function openProjectById(id) {
   const project = readProjectLibrary().find((entry) => entry.id === id);
   if (!project) {
-    toast('项目不存在', '它可能已经被删除。', 'error');
+    toast(t('项目不存在'), t('它可能已经被删除。'), 'error');
     return false;
   }
 
@@ -1816,7 +1943,7 @@ function openProjectById(id) {
   try {
     normalized = normalizeCaseState(project.document);
   } catch (error) {
-    toast('项目无法打开', error?.message || String(error), 'error');
+    toast(t('项目无法打开'), error?.message || String(error), 'error');
     return false;
   }
 
@@ -1836,9 +1963,9 @@ function openProjectById(id) {
   queueSave();
   closeProjectLauncher({ restoreFocus: false });
   if (normalized.warnings.length > 0) {
-    toast('项目已打开，部分字段已修正', normalized.warnings[0], 'warning');
+    toast(t('项目已打开，部分字段已修正'), normalized.warnings[0], 'warning');
   } else {
-    toast('项目已打开', project.name);
+    toast(t('项目已打开'), displayProjectName(project.name));
   }
   return true;
 }
@@ -1871,10 +1998,10 @@ function deleteProjectFromLibrary(id) {
   pendingDeleteProjectId = null;
   renderProjectLauncher();
   toast(
-    '项目已删除',
+    t('项目已删除'),
     wasActive
-      ? '当前编辑仍保留为草稿，可继续保存。'
-      : '已从本机项目库移除。',
+      ? t('当前编辑仍保留为草稿，可继续保存。')
+      : t('已从本机项目库移除。'),
     wasActive ? 'warning' : 'success',
   );
 }
@@ -1891,6 +2018,10 @@ function requestDeleteProject(id) {
 function projectSignature(candidate) {
   const documentData = toCaseDocument(candidate, { touch: false });
   delete documentData.meta;
+  // Preset-derived names differ only by locale ("Pi 4B 外壳" vs "Pi 4B Case").
+  documentData.name = UNTITLED_PROJECT_NAMES.includes(documentData.name)
+    ? ''
+    : documentData.name.replace(/ (外壳|Case)$/, ' Case');
   return JSON.stringify(documentData);
 }
 
@@ -1945,42 +2076,42 @@ function openProjectDialog(action) {
   const isLibrary = action.type === 'library';
   const dims = deriveCaseDimensions(state);
   dom.projectDialogTitle.textContent = isLibrary
-    ? `打开「${action.project.name}」？`
+    ? t('打开「{name}」？', { name: displayProjectName(action.project.name) })
     : isPreset
-      ? `载入「${action.preset.label}」？`
-      : '新建项目？';
+      ? t('载入「{label}」？', { label: t(action.preset.label) })
+      : t('新建项目？');
   dom.projectDialogText.textContent = isLibrary
-    ? `打开项目会替换当前项目「${state.name}」的板子、孔位、开孔和外壳参数。`
+    ? t('打开项目会替换当前项目「{name}」的板子、孔位、开孔和外壳参数。', { name: state.name })
     : isPreset
-      ? `载入预设会替换当前项目「${state.name}」的板子、孔位、开孔和外壳参数。`
-      : `新建会替换当前项目「${state.name}」的所有参数。`;
+      ? t('载入预设会替换当前项目「{name}」的板子、孔位、开孔和外壳参数。', { name: state.name })
+      : t('新建会替换当前项目「{name}」的所有参数。', { name: state.name });
   dom.projectDialogSummary.innerHTML = [
-    projectSummaryItem('当前项目', state.name),
+    projectSummaryItem(t('当前项目'), state.name),
     projectSummaryItem(
-      '开发板',
+      t('开发板'),
       `${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} × ` +
         `${formatNumber(state.board.thickness)} mm`,
     ),
     projectSummaryItem(
-      '安装孔 / 开孔',
+      t('安装孔 / 开孔'),
       `${state.holes.length} / ${state.openings.length}`,
     ),
     projectSummaryItem(
-      '外壳外形',
+      t('外壳外形'),
       `${formatNumber(dims.outerWidth)} × ${formatNumber(dims.outerDepth)} × ` +
         `${formatNumber(dims.outerHeight)} mm`,
     ),
   ].join('');
   dom.projectDirectButton.textContent = isLibrary
-    ? '直接打开'
+    ? t('直接打开')
     : isPreset
-      ? '直接载入'
-      : '直接新建';
+      ? t('直接载入')
+      : t('直接新建');
   dom.projectExportButton.textContent = isLibrary
-    ? '导出并打开'
+    ? t('导出并打开')
     : isPreset
-      ? '导出并载入'
-      : '导出并新建';
+      ? t('导出并载入')
+      : t('导出并新建');
 
   pendingProjectAction = action;
   projectReturnFocus = document.activeElement;
@@ -2081,8 +2212,8 @@ function buildNow({ fit = false, generation = buildVersion, initial = false } = 
   if (!preview || previewFailed) return;
   const requestGeneration = generation;
   isBuilding = true;
-  if (initial) setModelStatus('busy', '正在生成六面板外壳');
-  setExportStatus('正在生成外壳…');
+  if (initial) setModelStatus('busy', t('正在生成六面板外壳'));
+  setExportStatus(t('正在生成外壳…'));
 
   requestAnimationFrame(() => {
     if (requestGeneration !== buildVersion && !initial) return;
@@ -2098,15 +2229,16 @@ function buildNow({ fit = false, generation = buildVersion, initial = false } = 
       modelDirty = false;
       pendingFit = false;
       updateModelUi(nextModel);
+      if (!dom.sheetModal.hidden) refreshSheetPreview();
       dom.canvasLoading.classList.add('is-hidden');
     } catch (error) {
       console.error('[BoardForge] enclosure build failed', error);
       if (nextModel && model !== nextModel) disposeCaseModel(nextModel);
       modelDirty = true;
-      setModelStatus('error', '外壳生成失败 · 请检查参数');
-      setExportStatus('生成失败', 'error');
+      setModelStatus('error', t('外壳生成失败 · 请检查参数'));
+      setExportStatus(t('生成失败'), 'error');
       dom.canvasLoading.classList.add('is-hidden');
-      toast('外壳生成失败', error?.message || String(error), 'error');
+      toast(t('外壳生成失败'), error?.message || String(error), 'error');
     } finally {
       isBuilding = false;
       updateActionButtons();
@@ -2118,8 +2250,8 @@ function buildNow({ fit = false, generation = buildVersion, initial = false } = 
 function setBuilding(building) {
   isBuilding = building;
   if (building) {
-    if (!model) setModelStatus('busy', '正在生成六面板外壳');
-    setExportStatus('正在计算…');
+    if (!model) setModelStatus('busy', t('正在生成六面板外壳'));
+    setExportStatus(t('正在计算…'));
   }
   updateActionButtons();
 }
@@ -2129,8 +2261,8 @@ function updateBlockedUi() {
   clearTimeout(buildTimer);
   buildVersion += 1;
   isBuilding = false;
-  setModelStatus('warning', '参数待修正 · 当前显示上次结果');
-  setExportStatus('请修正高亮参数', 'error');
+  setModelStatus('warning', t('参数待修正 · 当前显示上次结果'));
+  setExportStatus(t('请修正高亮参数'), 'error');
   updateActionButtons();
 }
 
@@ -2143,15 +2275,15 @@ function updateModelUi(result) {
     `${formatNumber(dims.innerWidth)} × ${formatNumber(dims.innerDepth)} × ` +
     `${formatNumber(dims.innerHeight)} mm`;
   dom.statMaterial.textContent =
-    `${formatNumber(dims.panelThickness)} mm · ${result.columnCount} 组固定柱`;
+    t('{t} mm · {n} 组固定柱', { t: formatNumber(dims.panelThickness), n: result.columnCount });
   dom.statTime.textContent = `${Math.round(result.buildMs)} ms`;
 
   if (result.warnings.length > 0) {
-    setModelStatus('warning', `6 面板 · ${result.warnings.length} 条提醒`);
-    setExportStatus(`可导出 · ${result.warnings.length} 条提醒`, 'warning');
+    setModelStatus('warning', t('6 面板 · {n} 条提醒', { n: result.warnings.length }));
+    setExportStatus(t('可导出 · {n} 条提醒', { n: result.warnings.length }), 'warning');
   } else {
-    setModelStatus('good', '6 面板 · 榫卯互锁');
-    setExportStatus('可导出 DXF / SVG');
+    setModelStatus('good', t('6 面板 · 榫卯互锁'));
+    setExportStatus(t('可导出 DXF / SVG'));
   }
 
   renderSceneNotices(result);
@@ -2175,7 +2307,9 @@ function renderSceneNotices(result) {
 }
 
 function updateOpeningsHint(result) {
-  const openingWarnings = result.warnings.filter((warning) => warning.includes('开孔'));
+  const openingWarnings = result.warnings.filter((warning) =>
+    warning.toLowerCase().includes(t('开孔').toLowerCase()),
+  );
   if (openingWarnings.length > 0) {
     dom.openingsHint.hidden = false;
     dom.openingsHint.textContent = openingWarnings.join(' ');
@@ -2199,21 +2333,21 @@ function setExportStatus(text, tone = 'ok') {
 
 function setExportStatusFromModel() {
   if (pendingInvalid.size > 0) {
-    setExportStatus('请修正高亮参数', 'error');
+    setExportStatus(t('请修正高亮参数'), 'error');
     return;
   }
   if (!model) {
-    setExportStatus('等待外壳生成', 'warning');
+    setExportStatus(t('等待外壳生成'), 'warning');
     return;
   }
   if (modelDirty || isBuilding) {
-    setExportStatus('正在更新…');
+    setExportStatus(t('正在更新…'));
     return;
   }
   if (model.warnings.length > 0) {
-    setExportStatus(`可导出 · ${model.warnings.length} 条提醒`, 'warning');
+    setExportStatus(t('可导出 · {n} 条提醒', { n: model.warnings.length }), 'warning');
   } else {
-    setExportStatus('可导出 DXF / SVG');
+    setExportStatus(t('可导出 DXF / SVG'));
   }
 }
 
@@ -2241,11 +2375,11 @@ function readProjectionMode() {
 
 function syncProjectionUi() {
   const orthographic = currentProjection === 'orthographic';
-  const actionLabel = orthographic ? '切换到透视投影' : '切换到正交投影';
+  const actionLabel = orthographic ? t('切换到透视投影') : t('切换到正交投影');
   dom.projectionButton.setAttribute('aria-pressed', String(orthographic));
   dom.projectionButton.title = actionLabel;
   dom.projectionButton.setAttribute('aria-label', actionLabel);
-  dom.projectionButtonLabel.textContent = orthographic ? '正交' : '透视';
+  dom.projectionButtonLabel.textContent = orthographic ? t('正交') : t('透视');
   dom.settingsProjectionButtons.forEach((button) => {
     const active = button.dataset.projection === currentProjection;
     button.setAttribute('aria-checked', String(active));
@@ -2277,11 +2411,11 @@ function setActiveView(view) {
   });
 
   const isSideView = SIDE_VIEWS.includes(view);
-  dom.viewMenuLabel.textContent = isSideView ? SIDE_VIEW_LABELS[view] : '侧视';
+  dom.viewMenuLabel.textContent = isSideView ? t(SIDE_VIEW_LABELS[view]) : t('侧视');
   dom.viewMenuButton.classList.toggle('is-active', isSideView);
   const actionLabel = isSideView
-    ? `当前${SIDE_VIEW_LABELS[view]}，选择其他侧视方向`
-    : '选择侧视方向';
+    ? t('当前{view}，选择其他侧视方向', { view: t(SIDE_VIEW_LABELS[view]) })
+    : t('选择侧视方向');
   dom.viewMenuButton.setAttribute('aria-label', actionLabel);
   dom.viewMenuButton.title = actionLabel;
 }
@@ -2315,21 +2449,24 @@ function toggleExploded() {
 
 /* ── Cut-sheet preview ──────────────────────────────────────────────────── */
 
+function refreshSheetPreview() {
+  const bounds = cutSheetBounds(model);
+  dom.sheetSize.textContent =
+    `${formatNumber(bounds.sheetWidth)} × ${formatNumber(bounds.sheetHeight)} mm`;
+  dom.sheetPreview.innerHTML = buildCutSvg(model).replace(/^<\?xml[^>]*\?>\s*/i, '');
+}
+
 function openSheetPreview() {
   if (!ensureModelReady()) return;
   try {
-    const bounds = cutSheetBounds(model);
-    dom.sheetSize.textContent =
-      `${formatNumber(bounds.sheetWidth)} × ${formatNumber(bounds.sheetHeight)} mm`;
-    const svg = buildCutSvg(model).replace(/^<\?xml[^>]*\?>\s*/i, '');
-    dom.sheetPreview.innerHTML = svg;
+    refreshSheetPreview();
     sheetReturnFocus = document.activeElement;
     dom.sheetModal.hidden = false;
     dom.sheetModal.setAttribute('aria-hidden', 'false');
     document.body.classList.add('sheet-open');
     dom.sheetCloseButton.focus();
   } catch (error) {
-    toast('切割排版预览失败', error?.message || String(error), 'error');
+    toast(t('切割排版预览失败'), error?.message || String(error), 'error');
   }
 }
 
@@ -2349,11 +2486,11 @@ function closeSheetPreview() {
 
 function ensureModelReady() {
   if (pendingInvalid.size > 0) {
-    toast('请先修正参数', '高亮字段的数值无效或超出范围。', 'error');
+    toast(t('请先修正参数'), t('高亮字段的数值无效或超出范围。'), 'error');
     return false;
   }
   if (!model || modelDirty || isBuilding) {
-    toast('外壳尚未更新完成', '请稍等片刻再导出。', 'warning');
+    toast(t('外壳尚未更新完成'), t('请稍等片刻再导出。'), 'warning');
     return false;
   }
   return true;
@@ -2367,7 +2504,7 @@ function touchDocument() {
 
 function exportCaseJson() {
   if (pendingInvalid.size > 0) {
-    toast('请先修正参数', '高亮字段的数值无效或超出范围。', 'error');
+    toast(t('请先修正参数'), t('高亮字段的数值无效或超出范围。'), 'error');
     return false;
   }
   try {
@@ -2376,10 +2513,10 @@ function exportCaseJson() {
     const filename = `${caseFileStem(state)}.case.json`;
     downloadBlob(new Blob([json], { type: 'application/json;charset=utf-8' }), filename);
     saveNow();
-    toast('参数文件已导出', `${filename} · ${formatBytes(new Blob([json]).size)}`);
+    toast(t('参数文件已导出'), `${filename} · ${formatBytes(new Blob([json]).size)}`);
     return true;
   } catch (error) {
-    toast('参数导出失败', error?.message || String(error), 'error');
+    toast(t('参数导出失败'), error?.message || String(error), 'error');
     return false;
   }
 }
@@ -2390,9 +2527,9 @@ function exportCutSvg() {
     const svg = buildCutSvg(model);
     const filename = `${caseFileStem(state)}-cut.svg`;
     downloadBlob(new Blob([svg], { type: 'image/svg+xml;charset=utf-8' }), filename);
-    toast('SVG 切割图已导出', `${model.panelCount} 块面板 · 单位 mm`);
+    toast(t('SVG 切割图已导出'), t('{n} 块面板 · 单位 mm', { n: model.panelCount }));
   } catch (error) {
-    toast('SVG 导出失败', error?.message || String(error), 'error');
+    toast(t('SVG 导出失败'), error?.message || String(error), 'error');
   }
 }
 
@@ -2402,9 +2539,9 @@ function exportCutDxf() {
     const dxf = buildCutDxf(model);
     const filename = `${caseFileStem(state)}-cut.dxf`;
     downloadBlob(new Blob([dxf], { type: 'application/dxf;charset=utf-8' }), filename);
-    toast('DXF 切割文件已导出', `${model.panelCount} 块面板 · CUT 图层 · 单位 mm`);
+    toast(t('DXF 切割文件已导出'), t('{n} 块面板 · CUT 图层 · 单位 mm', { n: model.panelCount }));
   } catch (error) {
-    toast('DXF 导出失败', error?.message || String(error), 'error');
+    toast(t('DXF 导出失败'), error?.message || String(error), 'error');
   }
 }
 
@@ -2441,7 +2578,7 @@ function looksLikeParameterDocument(raw) {
 async function importBoardFile(file) {
   if (!file) return;
   if (file.size > MAX_IMPORT_BYTES) {
-    toast('文件过大', '参数文件应小于 2 MB。', 'error');
+    toast(t('文件过大'), t('参数文件应小于 2 MB。'), 'error');
     return;
   }
 
@@ -2450,7 +2587,7 @@ async function importBoardFile(file) {
     if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
     const raw = JSON.parse(text);
     if (!looksLikeParameterDocument(raw)) {
-      throw new Error('这个 JSON 不包含开发板或外壳参数，无法导入。');
+      throw new Error(t('这个 JSON 不包含开发板或外壳参数，无法导入。'));
     }
 
     const { state: importedState, warnings, migratedFromBoardOnly } =
@@ -2474,15 +2611,15 @@ async function importBoardFile(file) {
     closeProjectLauncher({ restoreFocus: false });
 
     if (warnings.length > 0) {
-      toast('参数已导入，已自动修正部分字段', warnings.join(' '), 'warning');
+      toast(t('参数已导入，已自动修正部分字段'), warnings.join(' '), 'warning');
     } else {
       toast(
-        migratedFromBoardOnly ? '开发板参数已导入' : '外壳参数已导入',
-        `${state.name} · ${formatNumber(state.board.length)} × ${formatNumber(state.board.width)} mm 板子`,
+        migratedFromBoardOnly ? t('开发板参数已导入') : t('外壳参数已导入'),
+        t('{name} · {l} × {w} mm 板子', { name: state.name, l: formatNumber(state.board.length), w: formatNumber(state.board.width) }),
       );
     }
   } catch (error) {
-    toast('无法导入参数文件', error?.message || String(error), 'error');
+    toast(t('无法导入参数文件'), error?.message || String(error), 'error');
   } finally {
     dom.fileInput.value = '';
   }
@@ -2546,14 +2683,29 @@ function saveAutosaveEnabled(enabled) {
   }
 }
 
+function setAutosaveLabel(labelState) {
+  dom.autosaveLabel.dataset.state = labelState;
+  dom.autosaveLabel.textContent = t(AUTOSAVE_LABELS[labelState]);
+  dom.autosaveLabel.classList.toggle('is-saved', labelState === 'saved');
+}
+
+function refreshAutosaveLabel() {
+  const current = dom.autosaveLabel.dataset.state;
+  const next = !autosaveEnabled
+    ? 'off'
+    : !current || current === 'off'
+      ? 'idle'
+      : current;
+  setAutosaveLabel(next);
+}
+
 function syncAutosaveUi() {
   dom.autosaveToggle.checked = autosaveEnabled;
   if (!autosaveEnabled) {
     clearTimeout(savedLabelTimer);
-    dom.autosaveLabel.textContent = '自动保存已关闭';
-    dom.autosaveLabel.classList.remove('is-saved');
-  } else if (dom.autosaveLabel.textContent === '自动保存已关闭') {
-    dom.autosaveLabel.textContent = '草稿自动保存';
+    setAutosaveLabel('off');
+  } else if (!dom.autosaveLabel.dataset.state || dom.autosaveLabel.dataset.state === 'off') {
+    setAutosaveLabel('idle');
   }
 }
 
@@ -2639,8 +2791,7 @@ function queueSave() {
     return;
   }
   clearTimeout(saveTimer);
-  dom.autosaveLabel.textContent = '正在保存草稿…';
-  dom.autosaveLabel.classList.remove('is-saved');
+  setAutosaveLabel('saving');
   saveTimer = window.setTimeout(saveNow, 320);
 }
 
@@ -2653,16 +2804,11 @@ function saveNow() {
   try {
     const documentData = toCaseDocument(state, { touch: false });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(documentData));
-    dom.autosaveLabel.textContent = '草稿已保存';
-    dom.autosaveLabel.classList.add('is-saved');
+    setAutosaveLabel('saved');
     clearTimeout(savedLabelTimer);
-    savedLabelTimer = window.setTimeout(() => {
-      dom.autosaveLabel.textContent = '草稿自动保存';
-      dom.autosaveLabel.classList.remove('is-saved');
-    }, 1800);
+    savedLabelTimer = window.setTimeout(() => setAutosaveLabel('idle'), 1800);
   } catch {
-    dom.autosaveLabel.textContent = '无法访问本地存储';
-    dom.autosaveLabel.classList.remove('is-saved');
+    setAutosaveLabel('error');
   }
 }
 
@@ -2707,9 +2853,10 @@ function toast(title, message = '', tone = 'success') {
 function showFatal(message) {
   previewFailed = true;
   dom.fatalCard.hidden = false;
+  dom.fatalMessage.removeAttribute('data-i18n');
   dom.fatalMessage.textContent = message;
   dom.canvasLoading.classList.add('is-hidden');
-  setModelStatus('error', '3D 预览不可用');
+  setModelStatus('error', t('3D 预览不可用'));
   updateActionButtons();
 }
 
@@ -2722,7 +2869,7 @@ function bindEvents() {
     queueSave();
   });
   dom.caseName.addEventListener('blur', () => {
-    if (!state.name.trim()) state.name = '未命名开发板外壳';
+    if (!state.name.trim()) state.name = t('未命名开发板外壳');
     state.name = state.name.trim().slice(0, 80);
     dom.caseName.value = state.name;
     updateNameUi();
@@ -2857,6 +3004,10 @@ function bindEvents() {
   dom.settingsProjectionGroup.addEventListener('click', (event) => {
     const button = event.target.closest('[data-projection]');
     if (button) setProjection(button.dataset.projection);
+  });
+  dom.settingsLanguageGroup.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-lang]');
+    if (button) setLanguage(button.dataset.lang);
   });
   dom.autosaveToggle.addEventListener('change', () => {
     setAutosaveEnabled(dom.autosaveToggle.checked);
@@ -3106,6 +3257,8 @@ function exposeDebugApi() {
       getTheme: () => currentThemeColor,
       getMode: () => currentMode,
       getProjection: () => currentProjection,
+      getLanguage: () => getLanguage(),
+      setLanguage: (lang) => setLanguage(lang),
       getCamera: () => (preview ? preview.getCameraState() : null),
       isBusy: () => isBuilding || modelDirty,
       isAutosaveEnabled: () => autosaveEnabled,

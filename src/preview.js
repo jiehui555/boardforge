@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { t } from './i18n.js';
 
 const VIEW_DIRECTIONS = Object.freeze({
   iso: { direction: [0.98, -1.28, 1.02], up: [0, 0, 1] },
@@ -212,7 +213,7 @@ export class BoardPreview {
 
     canvas.addEventListener('webglcontextlost', (event) => {
       event.preventDefault();
-      this.onContextLost('WebGL 上下文已丢失，请刷新页面恢复 3D 预览。');
+      this.onContextLost(t('WebGL 上下文已丢失，请刷新页面恢复 3D 预览。'));
     });
 
     this.requestRender();

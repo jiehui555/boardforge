@@ -3092,6 +3092,10 @@ body.settings-open {
   gap: 14px;
 }
 
+.settings-row + .settings-row {
+  margin-top: 14px;
+}
+
 .settings-label {
   color: var(--text-soft);
   font-size: 11px;

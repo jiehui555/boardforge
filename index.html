@@ -7,9 +7,10 @@
     <meta name="theme-color" content="#0b0f0c" />
     <meta
       name="description"
+      data-i18n-content="BoardForge — 根据开发板尺寸和安装孔，生成六面板亚克力榫卯外壳，导出 DXF/SVG 切割文件与 3D 装配预览。"
       content="BoardForge — 根据开发板尺寸和安装孔，生成六面板亚克力榫卯外壳，导出 DXF/SVG 切割文件与 3D 装配预览。"
     />
-    <title>BoardForge · 开发板亚克力外壳生成器</title>
+    <title data-i18n="BoardForge · 开发板亚克力外壳生成器">BoardForge · 开发板亚克力外壳生成器</title>
     <script>
       try {
         if (localStorage.getItem('boardforge.mode.v1') === 'light') {
@@ -51,50 +52,50 @@
           </span>
           <span class="brand-copy">
             <span class="brand-name">BoardForge</span>
-            <span class="brand-sub">开发板亚克力外壳生成器</span>
+            <span class="brand-sub" data-i18n="开发板亚克力外壳生成器">开发板亚克力外壳生成器</span>
           </span>
         </div>
 
         <div class="topbar-actions">
-          <button class="btn btn-quiet settings-button" id="settingsButton" type="button" aria-haspopup="dialog" aria-expanded="false" title="界面与预览设置">
+          <button class="btn btn-quiet settings-button" id="settingsButton" type="button" aria-haspopup="dialog" aria-expanded="false" title="界面与预览设置" data-i18n-title="界面与预览设置">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 6h8M15.5 6H17M3 14h4M11.5 14H17" /><circle cx="13.2" cy="6" r="1.9" /><circle cx="9.2" cy="14" r="1.9" /></svg>
-            <span>设置</span>
+            <span data-i18n="设置">设置</span>
             <i class="theme-dot" aria-hidden="true"></i>
           </button>
-          <button class="btn btn-quiet" id="saveProjectButton" type="button" title="保存当前项目到本机项目库">
+          <button class="btn btn-quiet" id="saveProjectButton" type="button" title="保存当前项目到本机项目库" data-i18n-title="保存当前项目到本机项目库">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h9l3 3v10H4zM7 3.5v4h6v-4M7 12h6" /></svg>
-            <span>保存</span>
+            <span data-i18n="保存">保存</span>
           </button>
-          <button class="btn btn-quiet" id="projectsButton" type="button" title="打开项目库" aria-haspopup="dialog">
+          <button class="btn btn-quiet" id="projectsButton" type="button" title="打开项目库" data-i18n-title="打开项目库" aria-haspopup="dialog">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h5l1.5 2H17v8H3z" /></svg>
-            <span>项目</span>
+            <span data-i18n="项目">项目</span>
           </button>
-          <button class="btn btn-quiet" id="importButton" type="button" title="导入参数文件" aria-label="导入参数文件">
+          <button class="btn btn-quiet" id="importButton" type="button" title="导入参数文件" data-i18n-title="导入参数文件" aria-label="导入参数文件" data-i18n-aria-label="导入参数文件">
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 12.5v-9m0 0-3 3m3-3 3 3M4 12.5v3A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5v-3" /></svg>
-            <span>导入</span>
+            <span data-i18n="导入">导入</span>
           </button>
         </div>
       </header>
 
       <main class="workspace">
-        <aside class="sidebar" aria-label="外壳参数">
+        <aside class="sidebar" aria-label="外壳参数" data-i18n-aria-label="外壳参数">
           <div class="sidebar-scroll">
             <section class="panel-section project-section">
               <div class="section-kicker">
-                <span class="eyebrow">项目</span>
+                <span class="eyebrow" data-i18n="项目">项目</span>
                 <span class="autosave-label" id="autosaveLabel">草稿自动保存</span>
               </div>
               <label class="name-field">
-                <span class="sr-only">外壳名称</span>
+                <span class="sr-only" data-i18n="外壳名称">外壳名称</span>
                 <input id="caseName" type="text" maxlength="80" autocomplete="off" spellcheck="false" value="未命名开发板外壳" />
               </label>
-              <div class="preset-row" id="presetRow" aria-label="常用开发板预设"></div>
+              <div class="preset-row" id="presetRow" aria-label="常用开发板预设" data-i18n-aria-label="常用开发板预设"></div>
             </section>
 
             <details class="panel-section accordion-section" data-accordion="enclosure" open>
               <summary class="section-summary">
                 <span class="summary-main">
-                  <span class="eyebrow"><span class="step">01</span> 外壳尺寸</span>
+                  <span class="eyebrow" data-i18n-html='<span class="step">01</span> 外壳尺寸'><span class="step">01</span> 外壳尺寸</span>
                   <span class="summary-meta" id="enclosureSummary">95 × 66 × 29.6 mm</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
@@ -102,28 +103,28 @@
               <div class="section-body">
                 <div class="dimension-grid">
                   <label class="field">
-                    <span class="field-label">板厚 <em>T</em></span>
+                    <span class="field-label" data-i18n-html='板厚 <em>T</em>'>板厚 <em>T</em></span>
                     <span class="input-shell">
                       <input id="panelThicknessInput" data-case="panel_thickness" type="number" min="1" max="10" step="0.1" inputmode="decimal" value="3" />
                       <span class="unit">mm</span>
                     </span>
                   </label>
                   <label class="field">
-                    <span class="field-label">板边间隙 <em>C</em></span>
+                    <span class="field-label" data-i18n-html='板边间隙 <em>C</em>'>板边间隙 <em>C</em></span>
                     <span class="input-shell">
                       <input id="clearanceInput" data-case="clearance" type="number" min="1" max="60" step="0.5" inputmode="decimal" value="2" />
                       <span class="unit">mm</span>
                     </span>
                   </label>
                   <label class="field">
-                    <span class="field-label">底部净空 <em>B</em></span>
+                    <span class="field-label" data-i18n-html='底部净空 <em>B</em>'>底部净空 <em>B</em></span>
                     <span class="input-shell">
                       <input id="bottomGapInput" data-case="bottom_gap" type="number" min="0" max="100" step="0.5" inputmode="decimal" value="6" />
                       <span class="unit">mm</span>
                     </span>
                   </label>
                   <label class="field">
-                    <span class="field-label">顶部净空 <em>H</em></span>
+                    <span class="field-label" data-i18n-html='顶部净空 <em>H</em>'>顶部净空 <em>H</em></span>
                     <span class="input-shell">
                       <input id="topGapInput" data-case="top_gap" type="number" min="2" max="180" step="0.5" inputmode="decimal" value="16" />
                       <span class="unit">mm</span>
@@ -133,11 +134,11 @@
 
                 <div class="derived-row">
                   <div>
-                    <span>外壳外形</span>
+                    <span data-i18n="外壳外形">外壳外形</span>
                     <b id="outerDimensions">95 × 66 × 29.6</b>
                   </div>
                   <div>
-                    <span>内腔净高</span>
+                    <span data-i18n="内腔净高">内腔净高</span>
                     <b id="innerHeight">23.6 mm</b>
                   </div>
                 </div>
@@ -148,7 +149,7 @@
             <details class="panel-section accordion-section" data-accordion="mechanical">
               <summary class="section-summary">
                 <span class="summary-main">
-                  <span class="eyebrow"><span class="step">02</span> 固定散热</span>
+                  <span class="eyebrow" data-i18n-html='<span class="step">02</span> 固定散热'><span class="step">02</span> 固定散热</span>
                   <span class="summary-meta" id="mechanicalSummary">4 组固定柱 · 5 条通风槽</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
@@ -156,14 +157,14 @@
               <div class="section-body">
                 <div class="dimension-grid compact-grid">
                 <label class="field">
-                  <span class="field-label">五金规格</span>
+                  <span class="field-label" data-i18n="五金规格">五金规格</span>
                   <span class="input-shell select-shell">
-                    <select id="screwSpecSelect" aria-label="固定柱和面板螺丝规格"></select>
+                    <select id="screwSpecSelect" aria-label="固定柱和面板螺丝规格" data-i18n-aria-label="固定柱和面板螺丝规格"></select>
                     <svg class="select-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                   </span>
                 </label>
                 <label class="field">
-                  <span class="field-label">榫卯配合间隙</span>
+                  <span class="field-label" data-i18n="榫卯配合间隙">榫卯配合间隙</span>
                   <span class="input-shell">
                     <input id="fitInput" data-case="fit" type="number" min="0" max="0.8" step="0.05" inputmode="decimal" value="0.15" />
                     <span class="unit">mm</span>
@@ -174,8 +175,8 @@
 
               <label class="switch-row">
                 <span class="switch-copy">
-                  <strong>顶板 / 底板通风槽</strong>
-                  <small>在上下盖板中央生成等距圆角槽</small>
+                  <strong data-i18n="顶板 / 底板通风槽">顶板 / 底板通风槽</strong>
+                  <small data-i18n="在上下盖板中央生成等距圆角槽">在上下盖板中央生成等距圆角槽</small>
                 </span>
                 <input id="ventEnabledInput" type="checkbox" checked />
                 <span class="switch-track" aria-hidden="true"><span></span></span>
@@ -183,21 +184,21 @@
 
               <div class="dimension-grid compact-grid vent-fields" id="ventFields">
                 <label class="field">
-                  <span class="field-label">槽数量 <em>N</em></span>
+                  <span class="field-label" data-i18n-html='槽数量 <em>N</em>'>槽数量 <em>N</em></span>
                   <span class="input-shell">
                     <input id="ventCountInput" data-case="vent.count" type="number" min="1" max="14" step="1" inputmode="numeric" value="5" />
-                    <span class="unit">条</span>
+                    <span class="unit" data-i18n="条">条</span>
                   </span>
                 </label>
                 <label class="field">
-                  <span class="field-label">槽宽</span>
+                  <span class="field-label" data-i18n="槽宽">槽宽</span>
                   <span class="input-shell">
                     <input id="ventWidthInput" data-case="vent.slot_width" type="number" min="0.6" max="12" step="0.1" inputmode="decimal" value="2.4" />
                     <span class="unit">mm</span>
                   </span>
                 </label>
                 <label class="field">
-                  <span class="field-label">槽长</span>
+                  <span class="field-label" data-i18n="槽长">槽长</span>
                   <span class="input-shell">
                     <input id="ventLengthInput" data-case="vent.slot_length" type="number" min="4" max="260" step="0.5" inputmode="decimal" value="28" />
                     <span class="unit">mm</span>
@@ -208,7 +209,7 @@
               <details class="hardware-details" id="hardwareDetails">
                 <summary>
                   <div class="board-summary-copy">
-                    <span class="eyebrow">五金清单</span>
+                    <span class="eyebrow" data-i18n="五金清单">五金清单</span>
                     <strong id="hardwareSummary">4 组一体固定柱 · 8 颗 M3 螺丝</strong>
                   </div>
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
@@ -216,7 +217,7 @@
                 <div class="hardware-body">
                   <ul class="bom-list" id="bomList"></ul>
                   <p class="field-note" id="bomNote">顶/底螺丝穿过面板拧入固定柱，固定柱同时夹持开发板。</p>
-                  <button class="bom-copy" id="copyBomButton" type="button">复制五金清单</button>
+                  <button class="bom-copy" id="copyBomButton" type="button" data-i18n="复制五金清单">复制五金清单</button>
                 </div>
               </details>
               </div>
@@ -225,7 +226,7 @@
             <details class="panel-section accordion-section openings-section" data-accordion="openings">
               <summary class="section-summary">
                 <span class="summary-main">
-                  <span class="eyebrow"><span class="step">03</span> 接口开孔</span>
+                  <span class="eyebrow" data-i18n-html='<span class="step">03</span> 接口开孔'><span class="step">03</span> 接口开孔</span>
                   <span class="count-pill" id="openingCount">0 / 32</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
@@ -238,39 +239,39 @@
                     <circle cx="18" cy="18" r="2.5" />
                   </svg>
                 </span>
-                <span>位置相对当前侧板中心<br /><b>U</b> 水平向右 · <b>V</b> 垂直向上</span>
+                <span data-i18n-html="位置相对当前侧板中心<br /><b>U</b> 水平向右 · <b>V</b> 垂直向上">位置相对当前侧板中心<br /><b>U</b> 水平向右 · <b>V</b> 垂直向上</span>
               </div>
 
-              <div class="panel-side-tabs" id="openingSideTabs" role="tablist" aria-label="侧板选择"></div>
+              <div class="panel-side-tabs" id="openingSideTabs" role="tablist" aria-label="侧板选择" data-i18n-aria-label="侧板选择"></div>
 
               <div class="panel-map-card">
                 <div class="panel-map-head">
                   <div>
-                    <span class="eyebrow">侧板平面</span>
+                    <span class="eyebrow" data-i18n="侧板平面">侧板平面</span>
                     <strong id="panelMapTitle">前面板</strong>
                   </div>
                   <span class="panel-map-dims" id="panelMapDims">89 × 23.6 mm</span>
                 </div>
-                <div class="panel-map" id="panelMap" aria-label="侧板开孔平面编辑区"></div>
+                <div class="panel-map" id="panelMap" aria-label="侧板开孔平面编辑区" data-i18n-aria-label="侧板开孔平面编辑区"></div>
                 <div class="panel-map-foot">
-                  <span>拖动开孔调整位置</span>
-                  <span>虚线内为可加工区域</span>
+                  <span data-i18n="拖动开孔调整位置">拖动开孔调整位置</span>
+                  <span data-i18n="虚线内为可加工区域">虚线内为可加工区域</span>
                 </div>
               </div>
 
               <div class="opening-preset-row">
                 <label class="opening-preset-field">
-                  <span>常用接口</span>
-                  <select id="openingPresetSelect" aria-label="选择常用接口预设"></select>
+                  <span data-i18n="常用接口">常用接口</span>
+                  <select id="openingPresetSelect" aria-label="选择常用接口预设" data-i18n-aria-label="选择常用接口预设"></select>
                 </label>
-                <button class="btn btn-secondary" id="addPresetOpeningButton" type="button">添加预设</button>
+                <button class="btn btn-secondary" id="addPresetOpeningButton" type="button" data-i18n="添加预设">添加预设</button>
               </div>
 
               <div class="opening-list" id="openingList"></div>
               <p class="holes-hint" id="openingsHint" hidden></p>
               <button class="add-hole-button" id="addOpeningButton" type="button">
                 <span class="plus">+</span>
-                <span>添加自定义开孔</span>
+                <span data-i18n="添加自定义开孔">添加自定义开孔</span>
               </button>
               </div>
             </details>
@@ -278,7 +279,7 @@
             <details class="panel-section accordion-section board-details" id="boardDetails" data-accordion="board">
               <summary class="section-summary">
                 <span class="summary-main">
-                  <span class="eyebrow"><span class="step">04</span> 板型参考</span>
+                  <span class="eyebrow" data-i18n-html='<span class="step">04</span> 板型参考'><span class="step">04</span> 板型参考</span>
                   <span class="summary-meta" id="boardSummary">85 × 56 × 1.6 mm · 4 孔</span>
                 </span>
                 <svg class="summary-chevron" viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
@@ -286,28 +287,28 @@
               <div class="section-body board-details-body">
                 <div class="dimension-grid">
                   <label class="field">
-                    <span class="field-label">长度 <em>X</em></span>
+                    <span class="field-label" data-i18n-html='长度 <em>X</em>'>长度 <em>X</em></span>
                     <span class="input-shell">
                       <input id="lengthInput" data-path="board.length" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="85" />
                       <span class="unit">mm</span>
                     </span>
                   </label>
                   <label class="field">
-                    <span class="field-label">宽度 <em>Y</em></span>
+                    <span class="field-label" data-i18n-html='宽度 <em>Y</em>'>宽度 <em>Y</em></span>
                     <span class="input-shell">
                       <input id="widthInput" data-path="board.width" type="number" min="10" max="500" step="0.1" inputmode="decimal" value="56" />
                       <span class="unit">mm</span>
                     </span>
                   </label>
                   <label class="field">
-                    <span class="field-label">厚度 <em>Z</em></span>
+                    <span class="field-label" data-i18n-html='厚度 <em>Z</em>'>厚度 <em>Z</em></span>
                     <span class="input-shell">
                       <input id="thicknessInput" data-path="board.thickness" type="number" min="0.2" max="50" step="0.1" inputmode="decimal" value="1.6" />
                       <span class="unit">mm</span>
                     </span>
                   </label>
                   <label class="field">
-                    <span class="field-label">圆角 <em>R</em></span>
+                    <span class="field-label" data-i18n-html='圆角 <em>R</em>'>圆角 <em>R</em></span>
                     <span class="input-shell">
                       <input id="cornerInput" data-path="board.corner_radius" type="number" min="0" max="28" step="0.1" inputmode="decimal" value="3" />
                       <span class="unit">mm</span>
@@ -316,8 +317,8 @@
                 </div>
 
                 <div class="color-row">
-                  <span class="field-label">板子颜色</span>
-                  <label class="color-control" title="选择板子参考颜色">
+                  <span class="field-label" data-i18n="板子颜色">板子颜色</span>
+                  <label class="color-control" title="选择板子参考颜色" data-i18n-title="选择板子参考颜色">
                     <input id="colorInput" type="color" value="#1a5f2a" />
                     <span class="color-swatch" id="colorSwatch"></span>
                     <span class="color-hex" id="colorHex">#1A5F2A</span>
@@ -326,14 +327,14 @@
                 </div>
 
                 <div class="board-hole-heading">
-                  <span class="field-label">安装孔</span>
+                  <span class="field-label" data-i18n="安装孔">安装孔</span>
                   <span class="count-pill" id="holeCount">4 / 32</span>
                 </div>
                 <div class="hole-list" id="holeList"></div>
                 <p class="field-note" id="holeNote">板孔用于生成底部固定柱和底板过孔。</p>
                 <button class="add-hole-button" id="addHoleButton" type="button">
                   <span class="plus">+</span>
-                  <span>添加板子安装孔</span>
+                  <span data-i18n="添加板子安装孔">添加板子安装孔</span>
                 </button>
               </div>
             </details>
@@ -341,21 +342,21 @@
 
           <footer class="export-bar">
             <div class="export-meta">
-              <span class="export-label">导出</span>
+              <span class="export-label" data-i18n="导出">导出</span>
               <span class="export-filename" id="exportFilename">board-case-95x66x29.6</span>
-              <button class="preview-sheet-button" id="previewCutButton" type="button" title="预览六块面板的切割排版">排版预览</button>
+              <button class="preview-sheet-button" id="previewCutButton" type="button" title="预览六块面板的切割排版" data-i18n-title="预览六块面板的切割排版" data-i18n="排版预览">排版预览</button>
               <span class="export-status" id="exportStatus">准备就绪</span>
             </div>
             <div class="export-actions export-actions-3">
-              <button class="btn btn-secondary" id="exportJsonButton" type="button" title="导出可再次编辑的外壳参数文件">
+              <button class="btn btn-secondary" id="exportJsonButton" type="button" title="导出可再次编辑的外壳参数文件" data-i18n-title="导出可再次编辑的外壳参数文件">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v10m0 0 3.5-3.5M10 13 6.5 9.5M4 15.5h12" /></svg>
-                <span>参数</span>
+                <span data-i18n="参数">参数</span>
               </button>
-              <button class="btn btn-secondary" id="exportSvgButton" type="button" title="导出六块面板的 SVG 切割预览">
+              <button class="btn btn-secondary" id="exportSvgButton" type="button" title="导出六块面板的 SVG 切割预览" data-i18n-title="导出六块面板的 SVG 切割预览">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 3.5h8l4 4v9H4zM12 3.5v4h4" /><path d="M7 12h6M7 14.5h4" /></svg>
                 <span>SVG</span>
               </button>
-              <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，含 CUT 切割层与 ANNOTATION 标注层">
+              <button class="btn btn-primary" id="exportDxfButton" type="button" title="导出激光切割用 DXF，含 CUT 切割层与 ANNOTATION 标注层" data-i18n-title="导出激光切割用 DXF，含 CUT 切割层与 ANNOTATION 标注层">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h9l5 5v9H3zM12 3v5h5" /><path d="m6.5 15 3-4 2 2 2-3" /></svg>
                 <span>DXF</span>
               </button>
@@ -363,19 +364,19 @@
           </footer>
         </aside>
 
-        <section class="viewport" id="viewport" aria-label="外壳 3D 装配预览">
+        <section class="viewport" id="viewport" aria-label="外壳 3D 装配预览" data-i18n-aria-label="外壳 3D 装配预览">
           <canvas id="previewCanvas"></canvas>
           <div class="scene-vignette" aria-hidden="true"></div>
 
           <div class="scene-toolbar">
             <div class="scene-heading">
-              <span class="eyebrow"><span class="live-dot"></span> 装配预览</span>
+              <span class="eyebrow" data-i18n-html='<span class="live-dot"></span> 装配预览'><span class="live-dot"></span> 装配预览</span>
               <h1 id="previewName">未命名开发板外壳</h1>
             </div>
             <div class="scene-controls">
-              <div class="view-switch" role="group" aria-label="视角">
-                <button type="button" data-view="iso" class="active">立体</button>
-                <button type="button" data-view="top">顶视</button>
+              <div class="view-switch" role="group" aria-label="视角" data-i18n-aria-label="视角">
+                <button type="button" data-view="iso" class="active" data-i18n="立体">立体</button>
+                <button type="button" data-view="top" data-i18n="顶视">顶视</button>
                 <div class="view-menu-wrap">
                   <button class="view-menu-button" id="viewMenuButton" type="button"
                     aria-haspopup="menu" aria-expanded="false" aria-controls="viewMenu"
@@ -383,22 +384,22 @@
                     <span id="viewMenuLabel">侧视</span>
                     <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
                   </button>
-                  <div class="view-menu" id="viewMenu" role="menu" aria-label="侧视方向" hidden>
+                  <div class="view-menu" id="viewMenu" role="menu" aria-label="侧视方向" data-i18n-aria-label="侧视方向" hidden>
                     <button class="view-menu-item" type="button" role="menuitem" data-view="front">
-                      <span>前视</span>
-                      <small>前面板</small>
+                      <span data-i18n="前视">前视</span>
+                      <small data-i18n="前面板">前面板</small>
                     </button>
                     <button class="view-menu-item" type="button" role="menuitem" data-view="back">
-                      <span>后视</span>
-                      <small>后面板</small>
+                      <span data-i18n="后视">后视</span>
+                      <small data-i18n="后面板">后面板</small>
                     </button>
                     <button class="view-menu-item" type="button" role="menuitem" data-view="left">
-                      <span>左视</span>
-                      <small>左面板</small>
+                      <span data-i18n="左视">左视</span>
+                      <small data-i18n="左面板">左面板</small>
                     </button>
                     <button class="view-menu-item" type="button" role="menuitem" data-view="right">
-                      <span>右视</span>
-                      <small>右面板</small>
+                      <span data-i18n="右视">右视</span>
+                      <small data-i18n="右面板">右面板</small>
                     </button>
                   </div>
                 </div>
@@ -408,9 +409,9 @@
                 <svg class="projection-icon projection-icon-orthographic" viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14v9H3z" /></svg>
                 <span id="projectionButtonLabel">透视</span>
               </button>
-              <button class="explode-button" id="explodeButton" type="button" aria-pressed="false" title="展开六块面板" aria-label="展开六块面板">
+              <button class="explode-button" id="explodeButton" type="button" aria-pressed="false" title="展开六块面板" data-i18n-title="展开六块面板" aria-label="展开六块面板" data-i18n-aria-label="展开六块面板">
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5v4M10 13.5v4M2.5 10h4M13.5 10h4M5 5l2.5 2.5M12.5 12.5 15 15M15 5l-2.5 2.5M7.5 12.5 5 15" /></svg>
-                <span>爆炸</span>
+                <span data-i18n="爆炸">爆炸</span>
               </button>
             </div>
           </div>
@@ -422,38 +423,38 @@
 
           <div class="scene-stats" id="sceneStats">
             <div class="stat">
-              <span class="stat-label">外壳外形</span>
+              <span class="stat-label" data-i18n="外壳外形">外壳外形</span>
               <span class="stat-value" id="statSize">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">内腔</span>
+              <span class="stat-label" data-i18n="内腔">内腔</span>
               <span class="stat-value" id="statInner">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">板材 / 五金</span>
+              <span class="stat-label" data-i18n="板材 / 五金">板材 / 五金</span>
               <span class="stat-value" id="statMaterial">—</span>
             </div>
             <div class="stat">
-              <span class="stat-label">生成耗时</span>
+              <span class="stat-label" data-i18n="生成耗时">生成耗时</span>
               <span class="stat-value" id="statTime">—</span>
             </div>
             <div class="stat stat-export">
-              <span class="stat-label">导出</span>
+              <span class="stat-label" data-i18n="导出">导出</span>
               <span class="stat-value">DXF · mm</span>
             </div>
           </div>
 
           <div class="scene-hint">
-            <span><b>拖动</b> 旋转</span>
-            <span><b>滚轮</b> 缩放</span>
-            <span><b>右键</b> 平移</span>
+            <span data-i18n-html="<b>拖动</b> 旋转"><b>拖动</b> 旋转</span>
+            <span data-i18n-html="<b>滚轮</b> 缩放"><b>滚轮</b> 缩放</span>
+            <span data-i18n-html="<b>右键</b> 平移"><b>右键</b> 平移</span>
           </div>
 
           <div class="scene-notices" id="sceneNotices" hidden></div>
 
           <div class="canvas-loading" id="canvasLoading">
             <span class="spinner"></span>
-            <span>正在初始化 3D 预览</span>
+            <span data-i18n="正在初始化 3D 预览">正在初始化 3D 预览</span>
           </div>
 
           <div class="drop-overlay" id="dropOverlay" aria-hidden="true">
@@ -461,14 +462,14 @@
               <span class="drop-icon">
                 <svg viewBox="0 0 32 32" fill="none"><path d="M16 5v14m0 0 5-5m-5 5-5-5M7 23v3h18v-3" /></svg>
               </span>
-              <strong>松手导入参数文件</strong>
+              <strong data-i18n="松手导入参数文件">松手导入参数文件</strong>
               <span>.case.json / .board.json</span>
             </div>
           </div>
 
           <div class="fatal-card" id="fatalCard" hidden>
-            <strong>3D 预览无法启动</strong>
-            <p id="fatalMessage">当前浏览器不支持 WebGL。</p>
+            <strong data-i18n="3D 预览无法启动">3D 预览无法启动</strong>
+            <p id="fatalMessage" data-i18n="当前浏览器不支持 WebGL。">当前浏览器不支持 WebGL。</p>
           </div>
         </section>
       </main>
@@ -478,39 +479,39 @@
       <div class="launcher-dialog" role="dialog" aria-modal="true" aria-labelledby="launcherTitle">
         <div class="launcher-head">
           <div>
-            <span class="eyebrow">项目</span>
-            <h2 id="launcherTitle">打开或新建项目</h2>
+            <span class="eyebrow" data-i18n="项目">项目</span>
+            <h2 id="launcherTitle" data-i18n="打开或新建项目">打开或新建项目</h2>
           </div>
-          <button class="launcher-close" id="launcherCloseButton" type="button" aria-label="关闭项目库">
+          <button class="launcher-close" id="launcherCloseButton" type="button" aria-label="关闭项目库" data-i18n-aria-label="关闭项目库">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
           </button>
         </div>
         <div class="launcher-body">
           <div class="launcher-current">
             <div class="launcher-current-copy">
-              <span class="eyebrow">当前编辑</span>
+              <span class="eyebrow" data-i18n="当前编辑">当前编辑</span>
               <strong id="launcherCurrentName">未命名开发板外壳</strong>
               <span id="launcherCurrentMeta">85 × 56 × 1.6 mm</span>
             </div>
-            <button class="btn btn-secondary" id="launcherSaveButton" type="button">保存当前项目</button>
+            <button class="btn btn-secondary" id="launcherSaveButton" type="button" data-i18n="保存当前项目">保存当前项目</button>
           </div>
 
           <div class="launcher-grid">
             <section class="launcher-pane">
               <div class="launcher-pane-head">
-                <span class="eyebrow">从模板新建</span>
-                <span class="launcher-hint">会替换当前编辑</span>
+                <span class="eyebrow" data-i18n="从模板新建">从模板新建</span>
+                <span class="launcher-hint" data-i18n="会替换当前编辑">会替换当前编辑</span>
               </div>
               <div class="launcher-presets" id="launcherPresets"></div>
               <button class="launcher-blank" id="launcherNewButton" type="button">
                 <span class="plus">+</span>
-                <span>新建空白项目</span>
+                <span data-i18n="新建空白项目">新建空白项目</span>
               </button>
             </section>
 
             <section class="launcher-pane">
               <div class="launcher-pane-head">
-                <span class="eyebrow">我的项目</span>
+                <span class="eyebrow" data-i18n="我的项目">我的项目</span>
                 <span class="launcher-count" id="launcherProjectCount">0</span>
               </div>
               <div class="launcher-projects" id="launcherProjects"></div>
@@ -518,8 +519,8 @@
           </div>
         </div>
         <div class="launcher-foot">
-          <button class="btn btn-secondary" id="launcherImportButton" type="button">导入参数文件</button>
-          <button class="btn btn-primary" id="launcherContinueButton" type="button">继续当前项目</button>
+          <button class="btn btn-secondary" id="launcherImportButton" type="button" data-i18n="导入参数文件">导入参数文件</button>
+          <button class="btn btn-primary" id="launcherContinueButton" type="button" data-i18n="继续当前项目">继续当前项目</button>
         </div>
       </div>
     </div>
@@ -528,39 +529,47 @@
       <div class="settings-dialog" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-describedby="settingsIntro">
         <div class="settings-head">
           <div>
-            <span class="eyebrow">设置</span>
-            <h2 id="settingsTitle">界面与预览</h2>
+            <span class="eyebrow" data-i18n="设置">设置</span>
+            <h2 id="settingsTitle" data-i18n="界面与预览">界面与预览</h2>
           </div>
-          <button class="confirm-close" id="settingsCloseButton" type="button" aria-label="关闭设置">
+          <button class="confirm-close" id="settingsCloseButton" type="button" aria-label="关闭设置" data-i18n-aria-label="关闭设置">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
           </button>
         </div>
 
         <div class="settings-body" id="settingsBody">
-          <p class="settings-intro" id="settingsIntro">以下都是本机界面偏好，不会改动外壳参数，也不写入导出的文件。</p>
+          <p class="settings-intro" id="settingsIntro" data-i18n="以下都是本机界面偏好，不会改动外壳参数，也不写入导出的文件。">以下都是本机界面偏好，不会改动外壳参数，也不写入导出的文件。</p>
 
           <section class="settings-group" aria-labelledby="settingsAppearanceTitle">
             <div class="settings-group-head">
-              <h3 id="settingsAppearanceTitle">外观</h3>
-              <span class="settings-badge">仅本机</span>
+              <h3 id="settingsAppearanceTitle" data-i18n="外观">外观</h3>
+              <span class="settings-badge" data-i18n="仅本机">仅本机</span>
             </div>
 
             <div class="settings-row">
-              <span class="settings-label">深浅色</span>
-              <div class="segmented-control" id="settingsModeGroup" role="radiogroup" aria-label="深浅色">
-                <button class="segmented-button" type="button" data-mode="dark" role="radio" aria-checked="true">深色</button>
-                <button class="segmented-button" type="button" data-mode="light" role="radio" aria-checked="false">浅色</button>
+              <span class="settings-label" data-i18n="语言">语言</span>
+              <div class="segmented-control" id="settingsLanguageGroup" role="radiogroup" aria-label="语言" data-i18n-aria-label="语言">
+                <button class="segmented-button" type="button" data-lang="zh" role="radio" aria-checked="true">中文</button>
+                <button class="segmented-button" type="button" data-lang="en" role="radio" aria-checked="false">English</button>
+              </div>
+            </div>
+
+            <div class="settings-row">
+              <span class="settings-label" data-i18n="深浅色">深浅色</span>
+              <div class="segmented-control" id="settingsModeGroup" role="radiogroup" aria-label="深浅色" data-i18n-aria-label="深浅色">
+                <button class="segmented-button" type="button" data-mode="dark" role="radio" aria-checked="true" data-i18n="深色">深色</button>
+                <button class="segmented-button" type="button" data-mode="light" role="radio" aria-checked="false" data-i18n="浅色">浅色</button>
               </div>
             </div>
 
             <div class="settings-field">
-              <span class="settings-label">主题色</span>
-              <p class="settings-hint">只改变界面强调色，不改变板子或亚克力颜色。</p>
-              <div class="theme-presets" id="themePresets" role="group" aria-label="主题色预设"></div>
+              <span class="settings-label" data-i18n="主题色">主题色</span>
+              <p class="settings-hint" data-i18n="只改变界面强调色，不改变板子或亚克力颜色。">只改变界面强调色，不改变板子或亚克力颜色。</p>
+              <div class="theme-presets" id="themePresets" role="group" aria-label="主题色预设" data-i18n-aria-label="主题色预设"></div>
               <label class="theme-custom">
-                <span>自定义颜色</span>
+                <span data-i18n="自定义颜色">自定义颜色</span>
                 <span class="theme-custom-value">
-                  <input id="themeColorInput" type="color" value="#8ee89d" aria-label="选择自定义主题色" />
+                  <input id="themeColorInput" type="color" value="#8ee89d" aria-label="选择自定义主题色" data-i18n-aria-label="选择自定义主题色" />
                   <span class="theme-color-preview" id="themeColorPreview"></span>
                   <span class="theme-color-hex" id="themeColorHex">#8EE89D</span>
                   <svg viewBox="0 0 20 20" aria-hidden="true"><path d="m6 8 4 4 4-4" /></svg>
@@ -571,30 +580,30 @@
 
           <section class="settings-group" aria-labelledby="settingsPreviewTitle">
             <div class="settings-group-head">
-              <h3 id="settingsPreviewTitle">三维预览</h3>
-              <span class="settings-badge">仅本机</span>
+              <h3 id="settingsPreviewTitle" data-i18n="三维预览">三维预览</h3>
+              <span class="settings-badge" data-i18n="仅本机">仅本机</span>
             </div>
 
             <div class="settings-row">
-              <span class="settings-label">投影方式</span>
-              <div class="segmented-control" id="settingsProjectionGroup" role="radiogroup" aria-label="投影方式">
-                <button class="segmented-button" type="button" data-projection="perspective" role="radio" aria-checked="true">透视</button>
-                <button class="segmented-button" type="button" data-projection="orthographic" role="radio" aria-checked="false">正交</button>
+              <span class="settings-label" data-i18n="投影方式">投影方式</span>
+              <div class="segmented-control" id="settingsProjectionGroup" role="radiogroup" aria-label="投影方式" data-i18n-aria-label="投影方式">
+                <button class="segmented-button" type="button" data-projection="perspective" role="radio" aria-checked="true" data-i18n="透视">透视</button>
+                <button class="segmented-button" type="button" data-projection="orthographic" role="radio" aria-checked="false" data-i18n="正交">正交</button>
               </div>
             </div>
-            <p class="settings-hint">与 3D 工具栏的投影按钮保持同步。</p>
+            <p class="settings-hint" data-i18n="与 3D 工具栏的投影按钮保持同步。">与 3D 工具栏的投影按钮保持同步。</p>
           </section>
 
           <section class="settings-group" aria-labelledby="settingsPerformanceTitle">
             <div class="settings-group-head">
-              <h3 id="settingsPerformanceTitle">性能</h3>
-              <span class="settings-badge">低配设备</span>
+              <h3 id="settingsPerformanceTitle" data-i18n="性能">性能</h3>
+              <span class="settings-badge" data-i18n="低配设备">低配设备</span>
             </div>
 
             <label class="switch-row settings-switch settings-switch-shadows">
               <span class="switch-copy">
-                <strong>阴影效果</strong>
-                <small>关闭后跳过阴影贴图渲染，低配置设备帧率更稳</small>
+                <strong data-i18n="阴影效果">阴影效果</strong>
+                <small data-i18n="关闭后跳过阴影贴图渲染，低配置设备帧率更稳">关闭后跳过阴影贴图渲染，低配置设备帧率更稳</small>
               </span>
               <input id="shadowsToggle" type="checkbox" checked />
               <span class="switch-track" aria-hidden="true"><span></span></span>
@@ -602,25 +611,25 @@
 
             <label class="switch-row settings-switch settings-switch-stacked settings-switch-hidpi">
               <span class="switch-copy">
-                <strong>高清渲染</strong>
-                <small>关闭后按 1x 像素比渲染，高分屏上明显降负载</small>
+                <strong data-i18n="高清渲染">高清渲染</strong>
+                <small data-i18n="关闭后按 1x 像素比渲染，高分屏上明显降负载">关闭后按 1x 像素比渲染，高分屏上明显降负载</small>
               </span>
               <input id="hidpiToggle" type="checkbox" checked />
               <span class="switch-track" aria-hidden="true"><span></span></span>
             </label>
 
-            <p class="settings-hint">预览静止时不再持续重绘，交互或动画时才出帧。</p>
+            <p class="settings-hint" data-i18n="预览静止时不再持续重绘，交互或动画时才出帧。">预览静止时不再持续重绘，交互或动画时才出帧。</p>
           </section>
 
           <section class="settings-group" aria-labelledby="settingsDraftTitle">
             <div class="settings-group-head">
-              <h3 id="settingsDraftTitle">草稿</h3>
+              <h3 id="settingsDraftTitle" data-i18n="草稿">草稿</h3>
             </div>
 
             <label class="switch-row settings-switch settings-switch-autosave">
               <span class="switch-copy">
-                <strong>自动保存草稿</strong>
-                <small>关闭后刷新页面不会恢复当前项目；已保存到项目库的项目不受影响</small>
+                <strong data-i18n="自动保存草稿">自动保存草稿</strong>
+                <small data-i18n="关闭后刷新页面不会恢复当前项目；已保存到项目库的项目不受影响">关闭后刷新页面不会恢复当前项目；已保存到项目库的项目不受影响</small>
               </span>
               <input id="autosaveToggle" type="checkbox" checked />
               <span class="switch-track" aria-hidden="true"><span></span></span>
@@ -629,8 +638,8 @@
         </div>
 
         <div class="settings-foot">
-          <button class="btn btn-quiet" id="resetSettingsButton" type="button">全部恢复默认</button>
-          <button class="btn btn-primary" id="settingsDoneButton" type="button">完成</button>
+          <button class="btn btn-quiet" id="resetSettingsButton" type="button" data-i18n="全部恢复默认">全部恢复默认</button>
+          <button class="btn btn-primary" id="settingsDoneButton" type="button" data-i18n="完成">完成</button>
         </div>
       </div>
     </div>
@@ -639,20 +648,20 @@
       <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="projectDialogTitle" aria-describedby="projectDialogText">
         <div class="confirm-head">
           <div>
-            <span class="eyebrow">项目切换</span>
+            <span class="eyebrow" data-i18n="项目切换">项目切换</span>
             <h2 id="projectDialogTitle">载入预设？</h2>
           </div>
-          <button class="confirm-close" id="projectCloseButton" type="button" aria-label="关闭项目切换提示">
+          <button class="confirm-close" id="projectCloseButton" type="button" aria-label="关闭项目切换提示" data-i18n-aria-label="关闭项目切换提示">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
           </button>
         </div>
         <div class="confirm-body">
           <p class="confirm-message" id="projectDialogText">载入预设会替换当前项目的参数。</p>
           <div class="confirm-summary" id="projectDialogSummary"></div>
-          <p class="confirm-note">本地自动保存只保留当前项目。导出后可随时通过「导入参数」继续编辑。</p>
+          <p class="confirm-note" data-i18n="本地自动保存只保留当前项目。导出后可随时通过「导入参数」继续编辑。">本地自动保存只保留当前项目。导出后可随时通过「导入参数」继续编辑。</p>
         </div>
         <div class="confirm-actions">
-          <button class="btn btn-quiet" id="projectCancelButton" type="button">取消</button>
+          <button class="btn btn-quiet" id="projectCancelButton" type="button" data-i18n="取消">取消</button>
           <button class="btn btn-secondary" id="projectDirectButton" type="button">直接载入</button>
           <button class="btn btn-primary" id="projectExportButton" type="button">导出并载入</button>
         </div>
@@ -663,23 +672,23 @@
       <div class="sheet-dialog" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
         <div class="sheet-head">
           <div>
-            <span class="eyebrow">激光切割</span>
-            <h2 id="sheetTitle">切割排版预览</h2>
+            <span class="eyebrow" data-i18n="激光切割">激光切割</span>
+            <h2 id="sheetTitle" data-i18n="切割排版预览">切割排版预览</h2>
           </div>
-          <button class="sheet-close" id="sheetCloseButton" type="button" aria-label="关闭切割排版预览">
+          <button class="sheet-close" id="sheetCloseButton" type="button" aria-label="关闭切割排版预览" data-i18n-aria-label="关闭切割排版预览">
             <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
           </button>
         </div>
         <div class="sheet-meta">
-          <span>排版尺寸 <b id="sheetSize">—</b></span>
-          <span>6 块面板</span>
-          <span>单位 mm</span>
-          <span class="sheet-note">DXF 分层：CUT 切割 / ANNOTATION 标注 · kerf 由激光软件补偿</span>
+          <span><span data-i18n="排版尺寸">排版尺寸</span> <b id="sheetSize">—</b></span>
+          <span data-i18n="6 块面板">6 块面板</span>
+          <span data-i18n="单位 mm">单位 mm</span>
+          <span class="sheet-note" data-i18n="DXF 分层：CUT 切割 / ANNOTATION 标注 · kerf 由激光软件补偿">DXF 分层：CUT 切割 / ANNOTATION 标注 · kerf 由激光软件补偿</span>
         </div>
         <div class="sheet-preview" id="sheetPreview"></div>
         <div class="sheet-foot">
-          <button class="btn btn-secondary" id="sheetExportSvgButton" type="button">导出 SVG</button>
-          <button class="btn btn-primary" id="sheetExportDxfButton" type="button">导出切割 DXF</button>
+          <button class="btn btn-secondary" id="sheetExportSvgButton" type="button" data-i18n="导出 SVG">导出 SVG</button>
+          <button class="btn btn-primary" id="sheetExportDxfButton" type="button" data-i18n="导出切割 DXF">导出切割 DXF</button>
         </div>
       </div>
     </div>

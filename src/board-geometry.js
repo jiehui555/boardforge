@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 import { analyseHoles } from './schema.js';
+import { t } from './i18n.js';
 
 /**
  * Geometry pipeline.
@@ -294,14 +295,15 @@ export function buildBoardModel(state, options = {}) {
         geometry = csgGeometry;
         construction = 'csg';
       } else {
-        fallbackReason =
-          `CSG 结果未通过水密校验（${inspection.boundaryEdges} 条边界边），` +
-          '已改用直接建模。';
+        fallbackReason = t(
+          'CSG 结果未通过水密校验（{edges} 条边界边），已改用直接建模。',
+          { edges: inspection.boundaryEdges },
+        );
         csgGeometry.dispose();
       }
     } catch (error) {
       csgError = error;
-      fallbackReason = `布尔运算失败，已改用直接建模：${error.message || error}`;
+      fallbackReason = t('布尔运算失败，已改用直接建模：{error}', { error: error.message || error });
     }
   }
 
@@ -319,7 +321,7 @@ export function buildBoardModel(state, options = {}) {
       if (direct.kept.length < analysis.printable.length) {
         const skipped = analysis.printable.length - direct.kept.length;
         fallbackReason = (fallbackReason ? fallbackReason + ' ' : '') +
-          `${skipped} 个互相重叠的孔在直接建模中未能保留。`;
+          t('{n} 个互相重叠的孔在直接建模中未能保留。', { n: skipped });
       }
     } else {
       geometry = base;
@@ -336,7 +338,7 @@ export function buildBoardModel(state, options = {}) {
   const warnings = [...analysis.warnings];
   if (fallbackReason) warnings.push(fallbackReason);
   if (!inspection.watertight) {
-    warnings.push('模型未通过水密校验，导出前请检查孔径与板边。');
+    warnings.push(t('模型未通过水密校验，导出前请检查孔径与板边。'));
   }
 
   return {
